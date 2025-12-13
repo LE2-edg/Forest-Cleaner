@@ -1,0 +1,62 @@
+{
+  "en": {
+    "welcome": "Welcome",
+    "login": "Login",
+    "logout": "Logout",
+    "settings": "Settings",
+    "profile": "Profile",
+    "search": "Search",
+    "home": "Home",
+    "about": "About Us",
+    "contact": "Contact",
+    "help": "Help"
+  },
+  "fr": {
+    "welcome": "Bienvenue",
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "settings": "Paramètres",
+    "profile": "Profil",
+    "search": "Recherche",
+    "home": "Accueil",
+    "about": "À Propos",
+    "contact": "Contact",
+    "help": "Aide"
+  },
+  "es": {
+    "welcome": "Bienvenido",
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "settings": "Configuración",
+    "profile": "Perfil",
+    "search": "Buscar",
+    "home": "Inicio",
+    "about": "Acerca de",
+    "contact": "Contacto",
+    "help": "Ayuda"
+  },
+  "de": {
+    "welcome": "Willkommen",
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "settings": "Einstellungen",
+    "profile": "Profil",
+    "search": "Suche",
+    "home": "Startseite",
+    "about": "Über uns",
+    "contact": "Kontakt",
+    "help": "Hilfe"
+  },
+  "ru": {
+    "welcome": "Добро пожаловать",
+    "login": "Войти",
+    "logout": "Выйти",
+    "settings": "Настройки",
+    "profile": "Профиль",
+    "search": "Поиск",
+    "home": "Главная",
+    "about": "О нас",
+    "contact": "Контакт",
+    "help": "Помощь"
+  }
+}
