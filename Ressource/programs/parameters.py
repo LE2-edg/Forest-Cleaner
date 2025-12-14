@@ -1,178 +1,81 @@
 import customtkinter as ctk
-import tkinter as tk
+import pygame
 import json
 import os
-import pygame # Toujours nécessaire pour interagir avec le mixer
+import sys
 
-# --- Configuration des Chemins et Constantes ---
-LANGUAGE_KEY = "language_selected"
-DATA_FOLDER = 'Ressource/data'
-DATA_FILENAME = 'data.json'
-DATA_FILEPATH = os.path.join(DATA_FOLDER, DATA_FILENAME)
+# Chemins
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(os.path.dirname(CURRENT_DIR), 'data')
+DATA_FILE = os.path.join(DATA_DIR, 'data.json')
+LANGUAGES_FILE = os.path.join(DATA_DIR, 'languages.json')
 
-# --- Simulation des Langues ---
-# Normalement, vous liriez ceci depuis languages.py/json, mais nous utilisons une liste pour la simplicité.
-LANGUAGES = [
-    {"code": "fr", "name": "Français", "label": "Langue"},
-    {"code": "en", "name": "English", "label": "Language"},
-    {"code": "es", "name": "Español", "label": "Idioma"}
-]
+pygame.mixer.init()
 
-# --- Fonctions de Gestion ---
-
-def get_current_language():
-    """Tente de lire le code de langue actuel dans data.json."""
+def get_text(key, lang):
     try:
-        with open(DATA_FILEPATH, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return data.get(LANGUAGE_KEY, "en") # Retourne "en" par défaut
-    except:
-        return "en"
+        with open(LANGUAGES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f).get(lang, {}).get(key, key)
+    except: return key
 
-def set_language_preference(lang_code):
-    """Enregistre la langue sélectionnée dans data.json."""
-    
-    # 1. Lire les données existantes ou initialiser
+def change_lang(new_lang, app):
+    # Sauvegarde
     try:
-        if os.path.exists(DATA_FILEPATH):
-            with open(DATA_FILEPATH, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        else:
-            data = {}
-    except:
-        data = {}
+        with open(DATA_FILE, 'r', encoding='utf-8') as f: d = json.load(f)
+    except: d = {}
+    d["language_selected"] = new_lang
+    with open(DATA_FILE, 'w', encoding='utf-8') as f: json.dump(d, f, indent=4)
     
-    # 2. Mettre à jour la clé de langue
-    data[LANGUAGE_KEY] = lang_code
-    
-    # 3. Écrire le fichier (pas de try...except pour respecter la consigne)
-    os.makedirs(os.path.dirname(DATA_FILEPATH), exist_ok=True)
-    with open(DATA_FILEPATH, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4)
-        
-    print(f"Langue changée et enregistrée: {lang_code}")
+    # Redémarrage simple : on ferme, l'utilisateur devra rouvrir (plus simple que de tout redessiner)
+    app.destroy()
+    # Optionnel : relancer le script
+    # os.execl(sys.executable, sys.executable, *sys.argv)
 
+def set_volume_music(val):
+    pygame.mixer.music.set_volume(float(val)/100)
 
-def update_music_volume(volume):
-    """Met à jour le volume de la musique (canal par défaut de Pygame)."""
-    # Pygame utilise une échelle de 0.0 à 1.0
-    volume_level = volume / 100.0
-    pygame.mixer.music.set_volume(volume_level)
-    print(f"Volume Musique mis à jour: {volume}%")
-
-def update_sfx_volume(volume):
-    """Met à jour le volume des effets sonores (utilisé pour les sons généraux)."""
-    # Pygame n'a pas de canal SFX séparé par défaut, on utilise un 'Channel' ou un volume général.
-    # Ici, nous allons simuler un contrôle SFX en utilisant la fonction set_volume() du mixer
-    # (cela affecterait tous les sons, mais simule la fonctionnalité).
-    volume_level = volume / 100.0
-    pygame.mixer.set_reserved(1) # Réserver un canal pour les SFX
-    pygame.mixer.Channel(0).set_volume(volume_level)
-    print(f"Volume Bruits mis à jour: {volume}%")
-
-# --- Interface Utilisateur ---
+def set_volume_sfx(val):
+    # Simulé sur le canal 0
+    pygame.mixer.Channel(0).set_volume(float(val)/100)
 
 def main():
-    # Initialisation Pygame pour garantir que le mixer est prêt
-    if not pygame.mixer.get_init():
-        pygame.mixer.init()
-        
     app = ctk.CTk()
-    app.title("Paramètres du Jeu")
-    app.geometry("800x600")
-    app.resizable(False, False)
+    app.geometry("600x600")
+    app.title("Settings")
     
-    current_lang = get_current_language()
+    # Langue actuelle
+    try:
+        with open(DATA_FILE) as f: lang = json.load(f).get("language_selected", "en")
+    except: lang = "en"
+    
+    # Titre
+    ctk.CTkLabel(app, text=get_text("settings", lang).upper(), font=("Arial", 30)).pack(pady=20)
+    
+    # Cadre Langue (Bleu)
+    l_frame = ctk.CTkFrame(app, fg_color="#2980B9")
+    l_frame.pack(fill="x", padx=20, pady=10)
+    ctk.CTkLabel(l_frame, text=get_text("language_selection", lang), text_color="white").pack()
+    
+    btn_frame = ctk.CTkFrame(l_frame, fg_color="transparent")
+    btn_frame.pack(pady=10)
+    
+    langs = ["fr", "en", "es"]
+    for l in langs:
+        color = "cyan" if l == lang else "blue"
+        ctk.CTkButton(btn_frame, text=l.upper(), width=60, fg_color=color, 
+                      command=lambda x=l: change_lang(x, app)).pack(side="left", padx=5)
 
-    # --- Titre ---
-    ctk.CTkLabel(
-        app, 
-        text="PARAMÈTRES", 
-        font=ctk.CTkFont(size=30, weight="bold")
-    ).pack(pady=(20, 10))
+    # Volume
+    ctk.CTkLabel(app, text=get_text("music_volume", lang)).pack(pady=(20,0))
+    slider_m = ctk.CTkSlider(app, from_=0, to=100, command=set_volume_music)
+    slider_m.set(50)
+    slider_m.pack()
+    
+    ctk.CTkLabel(app, text=get_text("sfx_volume", lang)).pack(pady=(20,0))
+    slider_s = ctk.CTkSlider(app, from_=0, to=100, command=set_volume_sfx, button_color="red")
+    slider_s.set(70)
+    slider_s.pack()
 
-    # --- 1. Contrôle de la Langue ---
-    
-    lang_frame = ctk.CTkFrame(app, fg_color="blue", width=700, height=150)
-    lang_frame.pack(pady=20, padx=20)
-    lang_frame.pack_propagate(False) # Empêche la frame de se redimensionner
-    
-    ctk.CTkLabel(
-        lang_frame, 
-        text="SÉLECTION DE LA LANGUE", 
-        fg_color="transparent",
-        font=ctk.CTkFont(size=18, weight="bold")
-    ).pack(pady=(10, 5))
-
-    button_container = ctk.CTkFrame(lang_frame, fg_color="blue")
-    button_container.pack(pady=10)
-    
-    # Disposition des boutons de langue dans des petits rectangles
-    for lang in LANGUAGES:
-        is_selected = (lang['code'] == current_lang)
-        
-        btn = ctk.CTkButton(
-            button_container,
-            text=lang["name"],
-            command=lambda code=lang["code"]: set_language_preference(code),
-            width=100,
-            fg_color=("cyan" if is_selected else "darkblue"),
-            hover_color=("teal" if not is_selected else "cyan")
-        )
-        btn.pack(side="left", padx=10, pady=5)
-    
-    # --- 2. Contrôle du Volume (Musique) ---
-    
-    volume_frame = ctk.CTkFrame(app)
-    volume_frame.pack(pady=20, padx=20, fill="x")
-
-    ctk.CTkLabel(
-        volume_frame, 
-        text="Musique :", 
-        font=ctk.CTkFont(size=16)
-    ).pack(pady=(10, 5))
-    
-    # Curseur pour la Musique (initialisé à 50%)
-    music_slider = ctk.CTkSlider(
-        volume_frame, 
-        from_=0, 
-        to=100, 
-        command=update_music_volume, 
-        width=500,
-        button_color="darkgreen"
-    )
-    music_slider.set(50) 
-    music_slider.pack(pady=10)
-    
-    # --- 3. Contrôle du Volume (Bruits/SFX) ---
-    
-    ctk.CTkLabel(
-        volume_frame, 
-        text="Bruits :", 
-        font=ctk.CTkFont(size=16)
-    ).pack(pady=(10, 5))
-    
-    # Curseur pour les Bruits (initialisé à 70%)
-    sfx_slider = ctk.CTkSlider(
-        volume_frame, 
-        from_=0, 
-        to=100, 
-        command=update_sfx_volume, 
-        width=500,
-        button_color="darkred"
-    )
-    sfx_slider.set(70) 
-    sfx_slider.pack(pady=10)
-    
-    # --- Bouton Fermer ---
-    ctk.CTkButton(
-        app, 
-        text="Fermer et Appliquer", 
-        command=app.destroy,
-        fg_color="green",
-        hover_color="darkgreen"
-    ).pack(pady=30)
-    
     app.mainloop()
 
 if __name__ == "__main__":
