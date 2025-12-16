@@ -1,15 +1,19 @@
+# programs/new_game.py - MODIFIÉ
+
 import customtkinter as ctk
 import sys
 import os
 import json
 import subprocess
+import random # AJOUTÉ
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(CURRENT_DIR), 'data')
-PROCESS_SCRIPT_PATH = os.path.join(CURRENT_DIR, 'procedurals_system', 'process.py')
+# NOUVEAU CHEMIN: On lance l'écran de chargement
+LOADING_SCREEN_SCRIPT = os.path.join(CURRENT_DIR, 'loading_screen.py') 
 
 def create_save_and_launch(slot_id, name, root):
-    """Crée le fichier JSON puis lance process.py"""
+    """Crée le fichier JSON puis lance l'écran de chargement."""
     
     # 1. Création de la sauvegarde
     file_path = os.path.join(DATA_DIR, f"save_{slot_id}.json")
@@ -20,7 +24,8 @@ def create_save_and_launch(slot_id, name, root):
         "name": name if name else f"Joueur {slot_id}",
         "progress": 0,
         "location": "forest_start",
-        "time": "00:00"
+        "time": "00:00",
+        "seed": random.randint(100000, 999999) # AJOUT IMPORTANT pour le procédural
     }
     
     try:
@@ -28,19 +33,21 @@ def create_save_and_launch(slot_id, name, root):
             json.dump(data, f, indent=4)
         print(f"Sauvegarde créée : {file_path}")
 
-        if os.path.exists(PROCESS_SCRIPT_PATH):
-            print(f"Lancement de {PROCESS_SCRIPT_PATH}...")
-            subprocess.Popen([sys.executable, PROCESS_SCRIPT_PATH, str(slot_id)])
+        # NOUVEAU: Lancement de l'écran de chargement
+        if os.path.exists(LOADING_SCREEN_SCRIPT):
+            print(f"Lancement de l'écran de chargement : {LOADING_SCREEN_SCRIPT}...")
+            # Lance loading_screen.py avec l'ID en argument
+            subprocess.Popen([sys.executable, LOADING_SCREEN_SCRIPT, str(slot_id)])
             root.destroy()
         else:
-            print(f"ERREUR CRITIQUE : Le fichier {PROCESS_SCRIPT_PATH} est introuvable.")
-            tk_msg_error(root, "Erreur", f"Script introuvable :\n{PROCESS_SCRIPT_PATH}")
+            print(f"ERREUR CRITIQUE : Le fichier {LOADING_SCREEN_SCRIPT} est introuvable.")
+            tk_msg_error(root, "Erreur", f"Script introuvable :\n{LOADING_SCREEN_SCRIPT}")
 
     except Exception as e:
         print(f"Erreur lors de la création : {e}")
 
 def tk_msg_error(root, title, message):
-    """Affiche une petite popup d'erreur si besoin (sans bloquer tout le script)"""
+    # ... (fonction inchangée)
     try:
         from tkinter import messagebox
         messagebox.showerror(title, message, parent=root)

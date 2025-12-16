@@ -1,0 +1,859 @@
+Forest-Cleaner:
+
+main.py
+import json
+import os
+import sys
+import subprocess
+
+# --- Configuration des Chemins ---
+RESSOURCE_FOLDER = 'Ressource'
+DATA_FOLDER = 'data'
+DATA_FILENAME = 'data.json'
+# Chemin complet pour le fichier de données
+DATA_FILEPATH = os.path.join(RESSOURCE_FOLDER,DATA_FOLDER, DATA_FILENAME)
+
+
+LANGUAGE_KEY = "language_selected"
+PROGRAMS_FOLDER = 'programs'
+QUESTIONNARY_FILE = "questionnary.py"
+INITIALE_MAIN_FILE = "initiale_main.py"
+
+# Définition des chemins de script en utilisant os.path.join
+initiale_main_path = os.path.join(RESSOURCE_FOLDER,PROGRAMS_FOLDER, INITIALE_MAIN_FILE)
+imp = initiale_main_path
+
+
+def questionnare_launch():
+    print("Launching questionnary...")
+    # NOTE: Pour la robustesse, il est préférable de retourner le chemin complet du fichier
+    return os.path.join(PROGRAMS_FOLDER, QUESTIONNARY_FILE)
+
+def initial_launch():
+    print("Launching initiale main...")
+    return imp
+
+# --- Fonctions d'Installation/Vérification ---
+
+def check_and_install_module(module_name, import_name=None):
+    """Vérifie si un module est installé et tente de l'installer si non."""
+    if import_name is None:
+        import_name = module_name
+        
+    print(f"Checking {import_name} installation...")
+    
+    try:
+        __import__(import_name)
+        return True
+    except ImportError:
+        print(f"{import_name} not installed. Installing {module_name}...")
+        try:
+            # Utiliser la version du package pour pip
+            subprocess.check_call([sys.executable, "-m", "pip", "install", module_name])
+            print(f"{import_name} installed successfully.")
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"Error installing {module_name}: {e}")
+            return False
+        except FileNotFoundError:
+            print(f"Error: pip not found for installing {module_name}.")
+            return False
+
+def tkinter_installed():
+    """Cette fonction sert à vérifier si tkinter est installé ou pas"""
+    try:
+        import tkinter
+        return True
+    except ImportError:
+        return False
+
+def tkinter_installer():
+    """Installe tkinter en utilisant pip. (Souvent impossible/inutile)."""
+    return False
+
+# --- Nouvelle Fonction pour Gérer Toutes les Dépendances ---
+
+def install_required_dependencies():
+    """Vérifie et installe toutes les dépendances requises."""
+    
+    # Dépendances requises pour l'interface, l'audio et la vidéo
+    
+    # 1. Tkinter (Vérification spéciale car installation par pip impossible)
+    if not tkinter_installed():
+        tkinter_installer()
+        
+    # 2. customtkinter (Interface)
+    check_and_install_module("customtkinter")
+    
+    # 3. pygame (Audio)
+    check_and_install_module("pygame")
+    
+    # 4. opencv-python (Vidéo)
+    check_and_install_module("opencv-python", import_name="cv2")
+    
+    print("All dependency checks completed.")
+
+def launch_script(script_path):
+    print("Launching script:", script_path)
+    """Exécute un script Python externe."""
+    if not os.path.exists(script_path):
+        print(f"Error: Script {script_path} not found.")
+        return False
+    
+    try:
+        subprocess.run([sys.executable, script_path], check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def main():
+    print("Main launched")
+    
+    # 🛠️ AJOUT CRITIQUE : Vérification et installation de toutes les dépendances
+    install_required_dependencies()
+    
+    # Lecture du fichier de configuration
+    try:
+        with open(DATA_FILEPATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        print(f"Error reading {DATA_FILEPATH}. Launching questionnary for initialization.")
+        return questionnare_launch()
+
+    # Logique de sélection de la langue
+    selected_value = data.get(LANGUAGE_KEY)
+    if selected_value is not None and selected_value != "None":
+        return initial_launch()
+    else:
+        return questionnare_launch()
+
+if __name__ == "__main__":
+    script_to_run = main()
+    launch_script(script_to_run)
+
+questionnary.py
+import tkinter as tk
+import json
+import os
+
+# --- Configuration des Chemins ---
+DATA_FOLDER = 'data'
+LANGUAGES_FILE = 'languages.json'
+LANGUAGES_FILEPATH = os.path.join(DATA_FOLDER, LANGUAGES_FILE)
+
+# --- Configuration des Styles ---
+BACKGROUND_COLOR = '#E0F0E0' # Vert clair tirant sur le blanc (Hex: #E0F0E0)
+DEFAULT_WIDTH = 1280
+DEFAULT_HEIGHT = 720
+MAX_WIDTH = 7680
+MAX_HEIGHT = 4320
+
+# ----------------------------------------------------------------------
+# 1. Fonctions de Chargement (Inchangées)
+# ----------------------------------------------------------------------
+
+def load_languages(filepath):
+    """Charge les données de langues depuis le fichier JSON."""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"Erreur : Le fichier {filepath} est introuvable. Utilisation des langues par défaut.")
+        return [
+            {"code": "en", "name": "English"},
+            {"code": "fr", "name": "Français"}
+        ]
+    except json.JSONDecodeError:
+        print(f"Erreur : Le fichier {filepath} n'est pas un JSON valide.")
+        return []
+
+def select_language(lang_code):
+    """Fonction appelée lorsqu'un bouton de langue est cliqué."""
+    print(f"Langue sélectionnée : {lang_code}")
+    root.destroy()
+
+# ----------------------------------------------------------------------
+# 2. Configuration de l'Interface Utilisateur
+# ----------------------------------------------------------------------
+
+# Initialisation de la fenêtre Tkinter
+root = tk.Tk()
+root.title("Sélection de la Langue")
+
+# --- 🛠️ 1. DIMENSIONS ET FOND ---
+
+# 1.1 Définir la taille par défaut (geometry)
+root.geometry(f"{DEFAULT_WIDTH}x{DEFAULT_HEIGHT}")
+
+# 1.2 Définir les tailles minimale et maximale
+root.minsize(DEFAULT_WIDTH, DEFAULT_HEIGHT) # Minimum = Taille par défaut
+root.maxsize(MAX_WIDTH, MAX_HEIGHT)
+
+# 1.3 Définir la couleur de fond
+root.configure(bg=BACKGROUND_COLOR)
+
+# S'assurer que les cellules de la grille s'étendent pour le centrage
+root.grid_columnconfigure(0, weight=1) # Colonne principale pour centrer
+
+# --- Variables et Structures ---
+
+LANGUAGES = load_languages(LANGUAGES_FILEPATH)
+
+# --- Affichage des messages de bienvenue ---
+
+# 🛠️ 2. ALIGNEMENT À GAUCHE (Sticky="w")
+
+label1 = tk.Label(
+    root,
+    text="Welcome, please select your language",
+    bg=BACKGROUND_COLOR, # Appliquer la couleur de fond au Label
+    justify=tk.LEFT,     # Justifier le texte à gauche (important si le texte s'étend sur plusieurs lignes)
+    anchor="w"           # Ancrer le widget à l'Ouest (Left/Gauche)
+)
+# Utiliser sticky='w' (West/Ouest) pour pousser le widget à gauche de sa cellule.
+label1.grid(column=0, row=0, padx=(20, 10), pady=10, sticky="w")
+
+label2 = tk.Label(
+    root,
+    text="Bienvenu, veuillez sélectionner votre langue",
+    bg=BACKGROUND_COLOR, # Appliquer la couleur de fond au Label
+    justify=tk.LEFT,
+    anchor="w"
+)
+label2.grid(column=0, row=1, padx=(20, 10), pady=5, sticky="w")
+
+# --- 🛠️ 3. ALIGNEMENT DES BOUTONS (Centrés dans la partie basse) ---
+
+# Nous allons créer une ligne vide pour pousser les boutons vers le bas (row 2)
+# et leur donner une nouvelle ligne de départ (row 3).
+BUTTON_START_ROW = 3
+
+# Pousser les widgets vers le bas : on donne un poids élevé à la ligne au-dessus des boutons
+# Ce poids fait en sorte que cette ligne prenne tout l'espace vertical disponible.
+root.grid_rowconfigure(2, weight=1)
+
+row_counter = BUTTON_START_ROW
+
+for lang in LANGUAGES:
+    lang_name = lang["name"]
+    lang_code = lang["code"]
+
+    btn = tk.Button(
+        root,
+        text=lang_name,
+        command=lambda code=lang_code: select_language(code),
+        width=25 # Largeur fixe pour le centrage visuel
+    )
+    # Les boutons sont placés au centre (sticky="") de la seule colonne disponible.
+    btn.grid(column=0, row=row_counter, padx=10, pady=5, sticky="")
+    row_counter += 1
+
+# --- Lancement de la boucle principale ---
+
+root.mainloop()
+
+print("Programme terminé après sélection de la langue.")
+
+/Ressource
+screenshot_1.mp4/screenshot_2.mp4/screenshot_3.mp4
+music_1.mp3/music_2.mp3
+/Ressource/data
+data.json
+{
+    "language_selected": "fr",
+    "other_setting": true
+}
+
+languages.json
+{
+  "en": {
+    "welcome": "Welcome",
+    "login": "Login",
+    "logout": "Logout",
+    "settings": "Settings",
+    "profile": "Profile",
+    "search": "Search",
+    "home": "Home",
+    "about": "About Us",
+    "contact": "Contact",
+    "help": "Help"
+  },
+  "fr": {
+    "welcome": "Bienvenue",
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "settings": "Paramètres",
+    "profile": "Profil",
+    "search": "Recherche",
+    "home": "Accueil",
+    "about": "À Propos",
+    "contact": "Contact",
+    "help": "Aide"
+  },
+  "es": {
+    "welcome": "Bienvenido",
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "settings": "Configuración",
+    "profile": "Perfil",
+    "search": "Buscar",
+    "home": "Inicio",
+    "about": "Acerca de",
+    "contact": "Contacto",
+    "help": "Ayuda"
+  },
+  "de": {
+    "welcome": "Willkommen",
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "settings": "Einstellungen",
+    "profile": "Profil",
+    "search": "Suche",
+    "home": "Startseite",
+    "about": "Über uns",
+    "contact": "Kontakt",
+    "help": "Hilfe"
+  },
+  "ru": {
+    "welcome": "Добро пожаловать",
+    "login": "Войти",
+    "logout": "Выйти",
+    "settings": "Настройки",
+    "profile": "Профиль",
+    "search": "Поиск",
+    "home": "Главная",
+    "about": "О нас",
+    "contact": "Контакт",
+    "help": "Помощь"
+  }
+}
+
+/Ressource/programs
+game_launcher.py
+# L'importation doit être corrigée pour éviter les erreurs de module, car ce script est
+# probablement lancé par subprocess et n'a pas accès à la variable lang_code facilement.
+# from initiale_main import lang_code 
+import tkinter as tk
+import customtkinter as ctk
+import random
+import pygame 
+import cv2 
+import os
+import json
+import subprocess
+import sys
+
+# --- Configuration et Chemins ---
+RESOURCE_FOLDER = 'Ressource'
+PROGRAMS_FOLDER = 'programs'
+PARAMETERS_SCRIPT = os.path.join(PROGRAMS_FOLDER, 'parameters.py') 
+NEW_GAME_SCRIPT = os.path.join(PROGRAMS_FOLDER, 'new_game.py')
+
+VIDEO_FILES = [
+    os.path.join(RESOURCE_FOLDER, 'screenshot_1.mp4'),
+    os.path.join(RESOURCE_FOLDER, 'screenshot_2.mp4'),
+    os.path.join(RESOURCE_FOLDER, 'screenshot_3.mp4')
+]
+MUSIC_FILES = [
+    os.path.join(RESOURCE_FOLDER, 'music_1.mp3'),
+    os.path.join(RESOURCE_FOLDER, 'music_2.mp3')
+]
+LANGUAGE_FILEPATH = os.path.join(RESOURCE_FOLDER, 'data', 'languages.json') 
+SAVE_FILES_PATH = os.path.join(RESOURCE_FOLDER, 'data') 
+MAX_SAVES = 4 
+
+# Configurations d'affichage
+DEFAULT_WIDTH = 1280
+DEFAULT_HEIGHT = 720
+MAX_WIDTH = 7680
+MAX_HEIGHT = 4320
+BACKGROUND_COLOR = "gray20"
+
+# Initialisation de Pygame pour le son
+pygame.mixer.init()
+global current_video_cap
+current_language_code = "EN"
+current_start_text = "START" 
+current_root_window = None 
+
+# --- Fonctions Audio et Vidéo Minimales ---
+
+def sound_manager():
+    """Cette fonction sert à gérer les sons du jeu."""
+    if not pygame.mixer.music.get_busy():
+        next_music = random.choice(MUSIC_FILES)
+        pygame.mixer.music.load(next_music)
+        pygame.mixer.music.play()
+
+def video_manager(video_label):
+    """Cette fonction sert à gérer la lecture et la boucle des vidéos."""
+    global current_video_cap
+
+    if 'current_video_cap' not in globals() or not current_video_cap.isOpened():
+        next_video_file = random.choice(VIDEO_FILES)
+        current_video_cap = cv2.VideoCapture(next_video_file)
+
+    ret, frame = current_video_cap.read()
+    
+    if not ret:
+        current_video_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        
+    video_label.after(33, lambda: video_manager(video_label))
+    
+# --- Fonctions de Logique ---
+
+def language_selection():
+    """Cette fonction sert à sélectionner la langue du jeu."""
+    pass
+
+def launch_parameters():
+    """Cette fonction sert à lancer les paramètres du jeu."""
+    # Lance le script parameters.py
+    print(f"Lancement du script de paramètres: {PARAMETERS_SCRIPT}")
+    subprocess.Popen([sys.executable, PARAMETERS_SCRIPT])
+
+
+def selection_parameters():
+    """Cette fonction sert à afficher les paramètres du jeu."""
+    pass
+
+def launch_game(save_file):
+    """Cette fonction sert à lancer la partie sélectionnée."""
+    print(f"Lancement de la partie avec le fichier de sauvegarde: {save_file}")
+    if current_root_window:
+        current_root_window.destroy()
+
+def launch_new_game(slot_id):
+    """Lance le script de création d'une nouvelle partie."""
+    print(f"Lancement de la création de nouvelle partie pour l'emplacement {slot_id}: {NEW_GAME_SCRIPT}")
+    if current_root_window:
+        current_root_window.destroy() 
+    
+    # Lance le script new_game.py
+    subprocess.Popen([sys.executable, NEW_GAME_SCRIPT, str(slot_id)])
+
+def confirm_action(slot_id, is_existing):
+    """Gère le pop-up de confirmation pour lancer ou écraser."""
+    
+    if is_existing:
+        action = tk.messagebox.askyesnocancel(
+            "Partie Existante",
+            f"Voulez-vous lancer la partie sauvegardée n°{slot_id} ou créer une nouvelle partie (écraser) ?",
+            icon='question',
+            type='yesnocancel',
+            default='yes',
+            master=current_root_window
+        )
+        
+        if action is True:
+            launch_game(os.path.join(SAVE_FILES_PATH, f'save_{slot_id}.json'))
+        elif action is False:
+            launch_new_game(slot_id)
+        
+    else:
+        # Nouvelle partie : Confirmer la création
+        action = tk.messagebox.askyesno(
+            "Nouvelle Partie",
+            f"Voulez-vous créer une nouvelle partie sur l'emplacement n°{slot_id} ?",
+            master=current_root_window
+        )
+        if action is True:
+            launch_new_game(slot_id)
+
+
+def selection_game():
+    """Cette fonction sert à afficher la sélection des parties."""
+    global current_root_window
+    
+    if current_root_window:
+        current_root_window.withdraw() 
+
+    # --- Nouvelle Fenêtre pour la Sélection ---
+    select_window = ctk.CTkToplevel(current_root_window)
+    select_window.title("Sélection de Partie")
+    select_window.geometry("1100x400")
+    select_window.configure(bg=BACKGROUND_COLOR)
+    select_window.transient(current_root_window)
+
+    select_window.grid_rowconfigure(0, weight=0) 
+    select_window.grid_rowconfigure(1, weight=1) # Ligne principale des slots
+    select_window.grid_rowconfigure(2, weight=0)
+    
+    # S'assurer que les colonnes des slots sont égales
+    for i in range(1, MAX_SAVES + 1):
+        select_window.grid_columnconfigure(i, weight=1)
+
+    header = ctk.CTkLabel(select_window, text="Emplacements de Sauvegarde", font=ctk.CTkFont(size=24, weight="bold"))
+    header.grid(row=0, column=0, columnspan=MAX_SAVES + 1, pady=(20, 10))
+
+    # Boucle pour créer les 4 slots horizontalement
+    for i in range(1, MAX_SAVES + 1):
+        slot_id = i
+        save_file = os.path.join(SAVE_FILES_PATH, f'save_{slot_id}.json')
+        
+        is_existing = os.path.exists(save_file)
+        slot_text = f"Emplacement {slot_id}\n(Nouveau)"
+        image_color = "gray" 
+        
+        if is_existing:
+            try:
+                with open(save_file, 'r', encoding='utf-8') as f:
+                    save_data = json.load(f)
+                    slot_name = save_data.get('name', f"Partie {slot_id}")
+                    slot_text = f"{slot_name}\nTemps: {save_data.get('time', 'N/A')}"
+                image_color = "green" 
+            except:
+                slot_text = f"Emplacement {slot_id}\n(Fichier corrompu)"
+                image_color = "red"
+        
+        # --- Création du Slot ---
+        
+        frame_slot = ctk.CTkFrame(select_window, fg_color=BACKGROUND_COLOR, border_width=2, border_color=image_color)
+        # Disposition en ligne : row=1, column=i
+        frame_slot.grid(row=1, column=i, padx=10, pady=20, sticky="nsew") 
+
+        # Placeholder Dessin de Nature (Rectangle Vertical)
+        nature_placeholder = ctk.CTkLabel(
+            frame_slot, 
+            text="[Nature]",
+            fg_color=image_color,
+            text_color="white",
+            height=150, 
+            width=200 
+        )
+        nature_placeholder.pack(padx=10, pady=10)
+        
+        # Bouton d'action
+        action_button = ctk.CTkButton(
+            frame_slot, 
+            text=f"Slot {slot_id}",
+            command=lambda id=slot_id, existing=is_existing: confirm_action(id, existing), 
+            width=200
+        )
+        action_button.pack(padx=10, pady=(0, 10))
+
+    # Fonction pour revenir à la fenêtre principale
+    def close_select_window():
+        select_window.destroy()
+        if current_root_window:
+            current_root_window.deiconify() 
+
+    # Bouton de retour
+    ctk.CTkButton(select_window, text="Retour", command=close_select_window).grid(row=2, column=0, columnspan=MAX_SAVES + 1, pady=30)
+    
+
+def launch_game():
+    """Cette fonction sert à lancer la partie sélectionnée."""
+    pass
+
+def selection_game():
+    """Cette fonction sert à afficher la sélection des parties."""
+    pass
+
+def body_game(root_frame):
+    """Cette fonction sert à afficher le bouton qui mène à la sélection des parties ou des paramètres"""
+    global current_start_text 
+    
+    # Bouton Paramètres (Haut Droit)
+    settings_button = ctk.CTkButton(
+        root_frame,
+        text="≡", 
+        command=launch_parameters, 
+        width=50,
+        height=50,
+        fg_color="gray", 
+        text_color="white",
+        font=ctk.CTkFont(size=24)
+    )
+    settings_button.grid(row=0, column=1, padx=20, pady=20, sticky="ne")
+
+    # Bouton Lancement de Partie (Bas Droit)
+    game_launch_button = ctk.CTkButton(
+        root_frame,
+        text=current_start_text,
+        command=selection_game, 
+        width=200,
+        height=60,
+        fg_color="yellow", 
+        text_color="black",
+        font=ctk.CTkFont(size=28, weight="bold")
+    )
+    game_launch_button.grid(row=2, column=1, padx=20, pady=20, sticky="se")
+
+def main():
+    global current_start_text, current_root_window
+    
+    # Chargement de la Langue
+    try:
+        with open(LANGUAGE_FILEPATH, "r", encoding="utf-8") as f:
+            language_data = json.load(f)
+            current_start_text = language_data.get("start_button_text", "START")
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    
+    # Configuration de la Fenêtre CTk
+    root = ctk.CTk()
+    current_root_window = root 
+    root.title("Lanceur de Jeu")
+    root.configure(bg=BACKGROUND_COLOR)
+    
+    # Configuration des dimensions
+    root.geometry(f"{DEFAULT_WIDTH}x{DEFAULT_HEIGHT}")
+    root.minsize(DEFAULT_WIDTH, DEFAULT_HEIGHT) 
+    root.maxsize(MAX_WIDTH, MAX_HEIGHT)
+    
+    root.grid_columnconfigure(0, weight=1)
+    root.grid_rowconfigure(0, weight=1)
+
+    # Frame Principale
+    main_frame = ctk.CTkFrame(root, fg_color=BACKGROUND_COLOR)
+    main_frame.grid(row=0, column=0, sticky="nsew")
+    
+    main_frame.grid_columnconfigure(0, weight=1) 
+    main_frame.grid_columnconfigure(1, weight=0) 
+    main_frame.grid_rowconfigure(0, weight=0) 
+    main_frame.grid_rowconfigure(1, weight=1) 
+    main_frame.grid_rowconfigure(2, weight=0) 
+    
+    # Composants Média
+    video_placeholder = ctk.CTkLabel(main_frame, text="", bg_color="transparent")
+    video_placeholder.grid(row=0, column=0, rowspan=3, columnspan=2, sticky="nsew")
+    
+    sound_manager() 
+    if 'current_video_cap' not in globals():
+        global current_video_cap
+        # Initialisation de la capture vidéo
+        current_video_cap = cv2.VideoCapture(random.choice(VIDEO_FILES))
+    
+    video_manager(video_placeholder) 
+
+    # Lancement de l'interface
+    body_game(main_frame)
+    
+    # Boucle de son et Mainloop
+    root.after(10000, lambda: sound_manager()) 
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
+
+initiale_main.py
+import json
+import os
+DATA_FOLDER = 'Ressource/data'
+DATA_FILENAME = 'data.json'
+data_file = os.path.join(DATA_FOLDER, DATA_FILENAME)
+data = {}
+lang_code = ""
+
+def game_lancher_ini():
+    #Cette fonction lance le programme de sélection de la partie du joueur.
+    print("Lancement du lanceur de jeu...")
+    return "game_lancher.py"
+
+def initialization():
+    #Cette fonction initialise la langue pour le reste des autre codes
+    return get_language_code() 
+
+def get_language_code():
+    #Cette fonction regarde le choix de la langue qui est dans data.json.
+    with open(data_file, 'r', encoding='utf-8') as f:
+        lang_code = json.load(f).get("language_selected", "")
+        return lang_code
+
+
+def main ():
+    #Cette fonction initialise le programme principal. 
+    #Une fois la langue chargée, elle affiche l'interface principale.
+    #Une fois que la partie du joueur est sélectionnée, elle lance la partie du joueur.
+    #Si le joueur n'a pas de partie déjà créée, elle lance la création de partie.
+    current_lang_code = initialization()
+    if current_lang_code: 
+        print(f"Langue sélectionnée : {current_lang_code}")
+        return game_lancher_ini()
+
+
+if __name__ == "__main__":
+    main()
+
+parameters.py
+import customtkinter as ctk
+import tkinter as tk
+import json
+import os
+import pygame # Toujours nécessaire pour interagir avec le mixer
+
+# --- Configuration des Chemins et Constantes ---
+LANGUAGE_KEY = "language_selected"
+DATA_FOLDER = 'Ressource/data'
+DATA_FILENAME = 'data.json'
+DATA_FILEPATH = os.path.join(DATA_FOLDER, DATA_FILENAME)
+
+# --- Simulation des Langues ---
+# Normalement, vous liriez ceci depuis languages.py/json, mais nous utilisons une liste pour la simplicité.
+LANGUAGES = [
+    {"code": "fr", "name": "Français", "label": "Langue"},
+    {"code": "en", "name": "English", "label": "Language"},
+    {"code": "es", "name": "Español", "label": "Idioma"}
+]
+
+# --- Fonctions de Gestion ---
+
+def get_current_language():
+    """Tente de lire le code de langue actuel dans data.json."""
+    try:
+        with open(DATA_FILEPATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return data.get(LANGUAGE_KEY, "en") # Retourne "en" par défaut
+    except:
+        return "en"
+
+def set_language_preference(lang_code):
+    """Enregistre la langue sélectionnée dans data.json."""
+    
+    # 1. Lire les données existantes ou initialiser
+    try:
+        if os.path.exists(DATA_FILEPATH):
+            with open(DATA_FILEPATH, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        else:
+            data = {}
+    except:
+        data = {}
+    
+    # 2. Mettre à jour la clé de langue
+    data[LANGUAGE_KEY] = lang_code
+    
+    # 3. Écrire le fichier (pas de try...except pour respecter la consigne)
+    os.makedirs(os.path.dirname(DATA_FILEPATH), exist_ok=True)
+    with open(DATA_FILEPATH, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4)
+        
+    print(f"Langue changée et enregistrée: {lang_code}")
+
+
+def update_music_volume(volume):
+    """Met à jour le volume de la musique (canal par défaut de Pygame)."""
+    # Pygame utilise une échelle de 0.0 à 1.0
+    volume_level = volume / 100.0
+    pygame.mixer.music.set_volume(volume_level)
+    print(f"Volume Musique mis à jour: {volume}%")
+
+def update_sfx_volume(volume):
+    """Met à jour le volume des effets sonores (utilisé pour les sons généraux)."""
+    # Pygame n'a pas de canal SFX séparé par défaut, on utilise un 'Channel' ou un volume général.
+    # Ici, nous allons simuler un contrôle SFX en utilisant la fonction set_volume() du mixer
+    # (cela affecterait tous les sons, mais simule la fonctionnalité).
+    volume_level = volume / 100.0
+    pygame.mixer.set_reserved(1) # Réserver un canal pour les SFX
+    pygame.mixer.Channel(0).set_volume(volume_level)
+    print(f"Volume Bruits mis à jour: {volume}%")
+
+# --- Interface Utilisateur ---
+
+def main():
+    # Initialisation Pygame pour garantir que le mixer est prêt
+    if not pygame.mixer.get_init():
+        pygame.mixer.init()
+        
+    app = ctk.CTk()
+    app.title("Paramètres du Jeu")
+    app.geometry("800x600")
+    app.resizable(False, False)
+    
+    current_lang = get_current_language()
+
+    # --- Titre ---
+    ctk.CTkLabel(
+        app, 
+        text="PARAMÈTRES", 
+        font=ctk.CTkFont(size=30, weight="bold")
+    ).pack(pady=(20, 10))
+
+    # --- 1. Contrôle de la Langue ---
+    
+    lang_frame = ctk.CTkFrame(app, fg_color="blue", width=700, height=150)
+    lang_frame.pack(pady=20, padx=20)
+    lang_frame.pack_propagate(False) # Empêche la frame de se redimensionner
+    
+    ctk.CTkLabel(
+        lang_frame, 
+        text="SÉLECTION DE LA LANGUE", 
+        fg_color="transparent",
+        font=ctk.CTkFont(size=18, weight="bold")
+    ).pack(pady=(10, 5))
+
+    button_container = ctk.CTkFrame(lang_frame, fg_color="blue")
+    button_container.pack(pady=10)
+    
+    # Disposition des boutons de langue dans des petits rectangles
+    for lang in LANGUAGES:
+        is_selected = (lang['code'] == current_lang)
+        
+        btn = ctk.CTkButton(
+            button_container,
+            text=lang["name"],
+            command=lambda code=lang["code"]: set_language_preference(code),
+            width=100,
+            fg_color=("cyan" if is_selected else "darkblue"),
+            hover_color=("teal" if not is_selected else "cyan")
+        )
+        btn.pack(side="left", padx=10, pady=5)
+    
+    # --- 2. Contrôle du Volume (Musique) ---
+    
+    volume_frame = ctk.CTkFrame(app)
+    volume_frame.pack(pady=20, padx=20, fill="x")
+
+    ctk.CTkLabel(
+        volume_frame, 
+        text="Musique :", 
+        font=ctk.CTkFont(size=16)
+    ).pack(pady=(10, 5))
+    
+    # Curseur pour la Musique (initialisé à 50%)
+    music_slider = ctk.CTkSlider(
+        volume_frame, 
+        from_=0, 
+        to=100, 
+        command=update_music_volume, 
+        width=500,
+        button_color="darkgreen"
+    )
+    music_slider.set(50) 
+    music_slider.pack(pady=10)
+    
+    # --- 3. Contrôle du Volume (Bruits/SFX) ---
+    
+    ctk.CTkLabel(
+        volume_frame, 
+        text="Bruits :", 
+        font=ctk.CTkFont(size=16)
+    ).pack(pady=(10, 5))
+    
+    # Curseur pour les Bruits (initialisé à 70%)
+    sfx_slider = ctk.CTkSlider(
+        volume_frame, 
+        from_=0, 
+        to=100, 
+        command=update_sfx_volume, 
+        width=500,
+        button_color="darkred"
+    )
+    sfx_slider.set(70) 
+    sfx_slider.pack(pady=10)
+    
+    # --- Bouton Fermer ---
+    ctk.CTkButton(
+        app, 
+        text="Fermer et Appliquer", 
+        command=app.destroy,
+        fg_color="green",
+        hover_color="darkgreen"
+    ).pack(pady=30)
+    
+    app.mainloop()
+
+if __name__ == "__main__":
+    main()
