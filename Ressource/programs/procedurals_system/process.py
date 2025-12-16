@@ -1,4 +1,4 @@
-# programs/procedurals_system/process.py - MODIFIÉ
+# programs/procedurals_system/process.py - MIS À JOUR
 
 import sys
 import json
@@ -19,7 +19,7 @@ RESSOURCES_3D_DIR = os.path.join(DATA_DIR, "3d_ressources")
 # Script du système de jeu final
 GAME_SYS_SCRIPT = os.path.join(PROGRAMS_DIR, "game_os", "game_sys.py")
 
-# Liste des assets pour la simulation
+# Liste des assets pour la simulation (MISE À JOUR)
 ASSETS = [
     "Tree.obj", "Stone.obj", "House_1.obj", 
     "House_2.obj", "lost_factory.obj", "Bottle.obj"
@@ -71,12 +71,16 @@ def procedural_generation(slot_id):
     for i, asset_name in enumerate(ASSETS):
         percent = 20 + int((i+1) / total_assets_to_place * 60) # 20% à 80%
         
-        # Vérification du type d'asset
-        if "Maison" in asset_name or "Usine" in asset_name:
-            task = f"Placement de la structure: {asset_name}..."
-        elif "Arbre" in asset_name or "Rocher" in asset_name:
-            task = f"Distribution de la ressource naturelle: {asset_name}..."
-        else:
+        # Vérification du type d'asset (Logique mise à jour pour les noms d'assets)
+        if "House" in asset_name:
+            task = f"Placement de la structure: {asset_name} (Maison)..."
+        elif "factory" in asset_name:
+            task = f"Placement de la structure: {asset_name} (Usine)..."
+        elif "Tree" in asset_name:
+            task = f"Distribution de la ressource naturelle: {asset_name} (Arbre)..."
+        elif "Stone" in asset_name:
+            task = f"Distribution de la ressource naturelle: {asset_name} (Rocher)..."
+        else: # Pour "Bottle.obj" et tout autre déchet
             task = f"Chargement de l'asset: {asset_name}..."
 
         report_progress(percent, task)
@@ -84,9 +88,9 @@ def procedural_generation(slot_id):
         time.sleep(0.5)
         
     # 3. Placement des différents déchets
-    report_progress(85, "Dispersion des différents déchers...")
-    # Les déchets se trouvent dans data/3d_ressources
-    # Code réel pour le placement (souvent une forte densité près de l'Usine)
+    # Cette étape se concentre uniquement sur les "déchets" (y compris ceux déjà listés)
+    report_progress(85, "Dispersion des différents déchets...")
+    # Le 'Bottle.obj' pourrait être un exemple de déchet à disperser massivement ici.
     time.sleep(1.0)
     
     # 4. Finalisation
