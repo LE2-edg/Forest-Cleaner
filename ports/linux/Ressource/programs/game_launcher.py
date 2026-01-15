@@ -9,7 +9,8 @@ def ensure_pillow():
         from PIL import Image, ImageTk
     except ImportError:
         print("Pillow non installé. Installation en cours...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "Pillow"])
+        print("Rentrez le mdp de l'admin pour installer les dépendances.")
+        subprocess.check_call([sys.executable, "sudo", "apt", "install", "Pillow"])
         from PIL import Image, ImageTk
 
 ensure_pillow()
