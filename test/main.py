@@ -257,6 +257,49 @@ def make_metal_texture():
                 )
     return Texture(img)
 
+def make_car_paint_texture():
+    """Texture de peinture auto rouge, homogène avec légère micro-variation."""
+    size = 64
+    img = Image.new('RGBA', (size, size), (190, 40, 40, 255))
+    pixels = img.load()
+    for x in range(size):
+        for y in range(size):
+            noise = random.randint(-6, 6)
+            soft = int(math.sin((x + y) * 0.08) * 4)
+            r = max(0, min(255, 190 + noise + soft))
+            g = max(0, min(255, 40 + noise // 2))
+            b = max(0, min(255, 40 + noise // 2))
+            pixels[x, y] = (r, g, b, 255)
+    return Texture(img)
+
+def make_dark_car_paint_texture():
+    """Version plus sombre de la peinture homogène (pour les rochers)."""
+    size = 64
+    img = Image.new('RGBA', (size, size), (95, 95, 95, 255))
+    pixels = img.load()
+    for x in range(size):
+        for y in range(size):
+            noise = random.randint(-6, 6)
+            soft = int(math.sin((x + y) * 0.1) * 4)
+            v = max(0, min(255, 95 + noise + soft))
+            pixels[x, y] = (v, v, v, 255)
+    return Texture(img)
+
+def make_car_glass_texture():
+    """Texture de vitre auto (bleutée, sans cadre bois)."""
+    size = 64
+    img = Image.new('RGBA', (size, size), (150, 190, 235, 255))
+    pixels = img.load()
+    for x in range(size):
+        for y in range(size):
+            noise = random.randint(-5, 5)
+            refl = int(math.sin((x * 0.25) + (y * 0.18)) * 10)
+            r = max(0, min(255, 150 + noise + refl))
+            g = max(0, min(255, 190 + noise + refl))
+            b = max(0, min(255, 235 + noise + refl))
+            pixels[x, y] = (r, g, b, 255)
+    return Texture(img)
+
 def make_water_texture():
     """Texture d'eau avec vagues."""
     size = 128
@@ -478,6 +521,9 @@ tex_stone  = make_stone_texture()
 tex_brick  = make_brick_texture()
 tex_roof   = make_roof_texture()
 tex_metal  = make_metal_texture()
+tex_car_paint = make_car_paint_texture()
+tex_car_paint_dark = make_dark_car_paint_texture()
+tex_car_glass = make_car_glass_texture()
 tex_water  = make_water_texture()
 tex_glass  = make_glass_texture()
 tex_can    = make_can_texture()
@@ -682,42 +728,42 @@ for i, (hx, hz) in enumerate(HOUSE_POSITIONS):
     Entity(
         model='cube', scale=(1.0, 0.06, 0.6),
         position=(hx - w * 0.15, 0.78, hz - d * 0.15),
-        color=color.rgb(139, 90, 43),
+        color=color.rgb(139, 90, 43), unlit=True,
     )
     Entity(
         model='cube', scale=(0.12, 0.75, 0.12),
         position=(hx - w * 0.15, 0.375, hz - d * 0.15),
-        color=color.rgb(120, 75, 35),
+        color=color.rgb(120, 75, 35), unlit=True,
     )
     # Chaises
     for cx_off in [-0.55, 0.55]:
         Entity(
             model='cube', scale=(0.32, 0.45, 0.32),
             position=(hx - w * 0.15 + cx_off, 0.225, hz - d * 0.15),
-            color=color.rgb(110, 70, 30),
+            color=color.rgb(110, 70, 30), unlit=True,
         )
         Entity(
             model='cube', scale=(0.32, 0.4, 0.06),
             position=(hx - w * 0.15 + cx_off, 0.65, hz - d * 0.15 - 0.15),
-            color=color.rgb(110, 70, 30),
+            color=color.rgb(110, 70, 30), unlit=True,
         )
     # Lit
     Entity(
         model='cube', scale=(1.6, 0.35, 0.85),
         position=(hx + w * 0.2, 0.175, hz + d * 0.2),
-        color=color.rgb(180, 140, 110),
+        color=color.rgb(180, 140, 110), unlit=True,
     )
     # Couverture
     Entity(
         model='cube', scale=(1.5, 0.06, 0.8),
         position=(hx + w * 0.2, 0.38, hz + d * 0.2),
-        color=color.rgb(100, 60, 60),
+        color=color.rgb(100, 60, 60), unlit=True,
     )
     # Oreiller
     Entity(
         model='cube', scale=(0.35, 0.1, 0.25),
         position=(hx + w * 0.2 + 0.55, 0.42, hz + d * 0.2),
-        color=color.rgb(230, 230, 230),
+        color=color.rgb(230, 230, 230), unlit=True,
     )
 
     houses.append(Entity(visible=False))  # placeholder pour la liste
@@ -910,7 +956,7 @@ Entity(model='cube', scale=(1.5, 0.6, 1.2),
 # Ouverture trémie
 Entity(model='cube', scale=(1.0, 0.12, 0.8),
        position=(recycler_pos.x, r_fh + 0.64, recycler_pos.z),
-       color=color.rgb(30, 30, 30))
+       color=color.rgb(30, 30, 30), unlit=True)
 # Panneau de contrôle (face avant — au-dessus du proём)
 Entity(model='cube', scale=(1.4, 0.8, 0.08),
        position=(recycler_pos.x, r_open_bottom + r_open_h + r_top_h * 0.4,
@@ -1014,7 +1060,7 @@ for _ in range(ROCK_COUNT):
         ),
         position=(rx, scale_factor * 0.2, rz),
         rotation=(random.uniform(-15, 15), random.uniform(0, 360), random.uniform(-10, 10)),
-        texture=tex_stone,
+        texture=tex_car_paint_dark,
         texture_scale=(2, 2),
         color=color.white,
         collider='box',
@@ -1029,7 +1075,7 @@ for _ in range(ROCK_COUNT):
         ),
         position=(rx + random.uniform(-0.2, 0.2), scale_factor * 0.45, rz + random.uniform(-0.2, 0.2)),
         rotation=(random.uniform(-25, 25), random.uniform(0, 360), random.uniform(-20, 20)),
-        texture=tex_stone,
+        texture=tex_car_paint_dark,
         texture_scale=(2, 2),
         color=color.white,
     )
@@ -1044,7 +1090,7 @@ for _ in range(ROCK_COUNT):
             ),
             position=(rx + random.uniform(-0.3, 0.3), scale_factor * 0.6, rz + random.uniform(-0.3, 0.3)),
             rotation=(random.uniform(-30, 30), random.uniform(0, 360), random.uniform(-25, 25)),
-            texture=tex_stone,
+            texture=tex_car_paint_dark,
             texture_scale=(2, 2),
             color=color.white,
         )
@@ -1161,13 +1207,13 @@ for i in range(int(ISLAND_SIZE)):
         Entity(
             model='cube', scale=(1, fence_height, 0.15),
             position=(x, fence_height / 2, half_island * z_sign),
-            color=color.rgb(139, 90, 43),
+            color=color.rgb(139, 90, 43), unlit=True,
         )
     for x_sign in [-1, 1]:
         Entity(
             model='cube', scale=(0.15, fence_height, 1),
             position=(half_island * x_sign, fence_height / 2, x),
-            color=color.rgb(139, 90, 43),
+            color=color.rgb(139, 90, 43), unlit=True,
         )
 
 # ============================================================
@@ -1182,30 +1228,52 @@ for side in [-1, 1]:
     Entity(
         model='cube', scale=(0.2, 1.2, 12),
         position=(-half_island - 2 + side * 1.8, 0.6, 0),
-        color=color.rgb(139, 90, 43),
+        color=color.rgb(139, 90, 43), unlit=True,
     )
 
 # ============================================================
 # Voitures (décor)
 # ============================================================
 car_positions = [(10, -20), (-25, 5), (30, -5)]
-car_colors = [color.rgb(200, 50, 50), color.rgb(50, 50, 200), color.rgb(220, 180, 30)]
+car_colors = [color.rgb(200, 50, 50), color.rgb(200, 50, 50), color.rgb(200, 50, 50)]
 
 for (cx, cz), ccolor in zip(car_positions, car_colors):
     Entity(
         model='cube', scale=(2, 1, 4), position=(cx, 0.7, cz),
-        color=ccolor, collider='box',
+        color=color.white, texture=tex_car_paint, texture_scale=(2, 2),
+        collider='box', unlit=True,
     )
     Entity(
         model='cube', scale=(1.8, 0.8, 2), position=(cx, 1.6, cz),
-        color=ccolor * 0.85,
+        color=color.white, texture=tex_car_paint, texture_scale=(1.5, 1.5),
+        unlit=True,
     )
+
+    # Vitres (pare-brise, lunette arrière, vitres latérales)
+    Entity(
+        model='cube', scale=(1.55, 0.35, 0.05),
+        position=(cx, 1.78, cz + 0.78), rotation=(25, 0, 0),
+        texture=tex_car_glass, texture_scale=(1, 1), color=color.white,
+    )
+    Entity(
+        model='cube', scale=(1.55, 0.35, 0.05),
+        position=(cx, 1.78, cz - 0.78), rotation=(-25, 0, 0),
+        texture=tex_car_glass, texture_scale=(1, 1), color=color.white,
+    )
+    for side in [-1, 1]:
+        Entity(
+            model='cube', scale=(0.05, 0.35, 1.1),
+            position=(cx + side * 0.88, 1.75, cz),
+            texture=tex_car_glass, texture_scale=(1, 1), color=color.white,
+        )
+
     for wx in [-1, 1]:
         for wz in [-1.2, 1.2]:
             Entity(
                 model=Cylinder(), scale=(0.4, 0.15, 0.4),
                 position=(cx + wx * 1.1, 0.3, cz + wz),
-                rotation=(0, 0, 90), color=color.rgb(30, 30, 30),
+                rotation=(0, 0, 90), color=color.white,
+                texture=tex_rubber, texture_scale=(1, 1),
             )
 
 # ============================================================

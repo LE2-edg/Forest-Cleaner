@@ -4,23 +4,66 @@ import sys
 import subprocess
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_FILEPATH = os.path.join(BASE_DIR, 'Ressource', 'data', 'data.json')
-PROGRAMS_FOLDER = os.path.join(BASE_DIR, 'Ressource', 'programs')
-
-QUESTIONNARY_SCRIPT = os.path.join(PROGRAMS_FOLDER, "questionnary.py")
-GAME_LAUNCHER_SCRIPT = os.path.join(PROGRAMS_FOLDER, "game_launcher.py")
-
 LANGUAGE_KEY = "language_selected"
+
+
+def resolve_resource_paths():
+    """Résout les bons chemins de ressources selon l'OS et la structure du projet."""
+    resource_candidates = []
+
+    if os.name == "nt":
+        resource_candidates.append(os.path.join(BASE_DIR, "ports", "windows", "Ressource"))
+        resource_candidates.append(os.path.join(BASE_DIR, "ports", "linux", "Ressource"))
+    else:
+        resource_candidates.append(os.path.join(BASE_DIR, "ports", "linux", "Ressource"))
+        resource_candidates.append(os.path.join(BASE_DIR, "ports", "windows", "Ressource"))
+
+    resource_candidates.append(os.path.join(BASE_DIR, "Ressource"))
+
+    for ressource_dir in resource_candidates:
+        programs_folder = os.path.join(ressource_dir, "programs")
+        questionnary_script = os.path.join(programs_folder, "questionnary.py")
+        game_launcher_script = os.path.join(programs_folder, "game_launcher.py")
+        if os.path.exists(questionnary_script) and os.path.exists(game_launcher_script):
+            data_filepath = os.path.join(ressource_dir, "data", "data.json")
+            return data_filepath, questionnary_script, game_launcher_script
+
+    fallback_ressource = os.path.join(BASE_DIR, "Ressource")
+    fallback_programs = os.path.join(fallback_ressource, "programs")
+    return (
+        os.path.join(fallback_ressource, "data", "data.json"),
+        os.path.join(fallback_programs, "questionnary.py"),
+        os.path.join(fallback_programs, "game_launcher.py"),
+    )
+
+
+DATA_FILEPATH, QUESTIONNARY_SCRIPT, GAME_LAUNCHER_SCRIPT = resolve_resource_paths()
+
 
 def install_dependencies():
     """Installe les dépendances manquantes."""
-    required = ["customtkinter", "pygame", "opencv-python", "ursina"]
+    required = ["customtkinter", "pygame", "opencv-python", "ursina", "pillow"]
     for package in required:
         try:
-            __import__(package.split('-')[0] if package != "opencv-python" else "cv2")
+            if package == "opencv-python":
+                module_name = "cv2"
+            elif package == "pillow":
+                module_name = "PIL"
+            else:
+                module_name = package.split('-')[0]
+
+            __import__(module_name)
         except ImportError:
             print(f"Installation de {package}...")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+            except subprocess.CalledProcessError as e:
+                print(f"Échec installation {package}: {e}")
+                return False
+            except KeyboardInterrupt:
+                print("Installation interrompue par l'utilisateur.")
+                return False
+    return True
 
 def launch_script(script_path):
     """Lance un script externe."""
@@ -36,7 +79,10 @@ def launch_script(script_path):
 
 def main():
     print("--- Démarrage du Launcher ---")
-    install_dependencies()
+    if not install_dependencies():
+        print("Dépendances incomplètes. Lance Runbefore.py puis réessaie.")
+        return
+
     lang_defined = False
     try:
         if os.path.exists(DATA_FILEPATH):
@@ -53,10 +99,13 @@ def main():
         launch_script(GAME_LAUNCHER_SCRIPT)
     else:
         print("Langue non définie. Lancement du questionnaire.")
-        launch_script(QUESTIONNARY_SCRIPT)
-        with open(DATA_FILEPATH, "r", encoding="utf-8") as f:
-             if json.load(f).get(LANGUAGE_KEY):
-                 launch_script(GAME_LAUNCHER_SCRIPT)
+        if launch_script(QUESTIONNARY_SCRIPT) and os.path.exists(DATA_FILEPATH):
+            try:
+                with open(DATA_FILEPATH, "r", encoding="utf-8") as f:
+                    if json.load(f).get(LANGUAGE_KEY):
+                        launch_script(GAME_LAUNCHER_SCRIPT)
+            except Exception as e:
+                print(f"Erreur lecture data.json après questionnaire: {e}")
 
 if __name__ == "__main__":
     main()
