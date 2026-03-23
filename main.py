@@ -14,7 +14,7 @@ LANGUAGE_KEY = "language_selected"
 
 def install_dependencies():
     """Installe les dépendances manquantes."""
-    required = ["customtkinter", "pygame", "opencv-python"]
+    required = ["customtkinter", "pygame", "opencv-python", "ursina"]
     for package in required:
         try:
             __import__(package.split('-')[0] if package != "opencv-python" else "cv2")

@@ -17,7 +17,7 @@ DATA_DIR = os.path.join(RESOURCE_DIR, "data")
 # Dossiers utilisateur dans 'data' (assumés)
 RESSOURCES_3D_DIR = os.path.join(DATA_DIR, "3d_ressources")
 # Script du système de jeu final
-GAME_SYS_SCRIPT = os.path.join(PROGRAMS_DIR, "game_os", "game_sys.py")
+GAME_SYS_SCRIPT = os.path.join(PROGRAMS_DIR, "game_os", "game_os.py")
 
 # Liste des assets pour la simulation (MISE À JOUR)
 ASSETS = [
