@@ -14,12 +14,41 @@ import random
 import sys
 import os
 import textwrap
+import time as _time_mod
 from pathlib import Path
+
+# ── Auto-install missing packages ──────────────────────────────────────────
+def _ensure_package(pip_name, import_name=None):
+    """Try importing; if missing, pip-install automatically."""
+    import importlib, subprocess
+    mod_name = import_name or pip_name
+    try:
+        return importlib.import_module(mod_name)
+    except ImportError:
+        print(f"[AUTO] Installing {pip_name}...")
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", pip_name],
+                stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        except Exception:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+        return importlib.import_module(mod_name)
+
+_ensure_package("ursina")
+_ensure_package("pillow", "PIL")
+
 from ursina import *
 from ursina.prefabs.first_person_controller import FirstPersonController
 from ursina.models.procedural.cylinder import Cylinder
 from ursina.models.procedural.cone import Cone
-from PIL import Image
+
+# ── PIL with fallback ──────────────────────────────────────────────────────
+_USE_PIL = True
+try:
+    from PIL import Image
+except Exception:
+    _USE_PIL = False
+    print("[WARN] Pillow unavailable – using solid-color textures (fast mode)")
 
 # ============================================================
 # Configuration
@@ -44,6 +73,11 @@ app = Ursina(
     size=(1280, 720),
     development_mode=False,
 )
+# Suppress "Could not find icon" warning spam from Panda3D
+from panda3d.core import WindowProperties
+wp = WindowProperties()
+wp.clearIconFilename()
+base.win.requestProperties(wp)
 # Pointer l'asset_folder vers la racine du projet pour que
 # les modèles OBJ dans models/ soient trouvés par Ursina.
 application.asset_folder = Path(os.path.dirname(os.path.abspath(__file__))).parent
@@ -62,12 +96,52 @@ def resolve_model(name, fallback):
     return fallback() if callable(fallback) else fallback
 
 # ============================================================
-# Textures procédurales
+# Textures procédurales (with solid-color fallback)
 # ============================================================
+
+def _solid_texture(r, g, b, a=255, size=4):
+    """Create a tiny solid-color texture. Works even without PIL using Panda3D."""
+    # Method 1: PIL (if available)
+    if _USE_PIL:
+        try:
+            img = Image.new('RGBA', (size, size), (r, g, b, a))
+            return Texture(img)
+        except Exception:
+            pass
+    # Method 2: Raw Panda3D bytes (always available with Ursina, matches PIL path)
+    try:
+        from panda3d.core import Texture as PandaTexture
+        ptex = PandaTexture('solid')
+        ptex.setup2dTexture(size, size, PandaTexture.TUnsignedByte, PandaTexture.FRgba)
+        # Panda3D stores rows bottom-to-top, BGRA order by default with setRamImage
+        # Using setRamImageAs with 'RGBA' to match our byte order
+        pixel = bytes([r, g, b, a])
+        data = pixel * (size * size)
+        ptex.setRamImageAs(data, 'RGBA')
+        result = Texture(ptex)
+        result.path = None
+        result._cached_image = None
+        return result
+    except Exception as exc:
+        print(f"[WARN] _solid_texture fallback failed: {exc}")
+        return None
+
+
+def _safe_texture(generator_func, fallback_rgba):
+    """Run a PIL texture generator; on any failure return a solid color."""
+    if not _USE_PIL:
+        return _solid_texture(*fallback_rgba)
+    try:
+        tex = generator_func()
+        if tex is not None:
+            return tex
+    except Exception as exc:
+        print(f"[WARN] Texture '{generator_func.__name__}' failed: {exc}")
+    return _solid_texture(*fallback_rgba)
 
 def make_grass_texture():
     """Texture d'herbe procédurale."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (34, 139, 34, 255))
     pixels = img.load()
     for x in range(size):
@@ -84,7 +158,7 @@ def make_grass_texture():
 
 def make_sand_texture():
     """Texture de sable procédurale."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (210, 180, 140, 255))
     pixels = img.load()
     for x in range(size):
@@ -101,7 +175,7 @@ def make_sand_texture():
 
 def make_bark_texture():
     """Texture d'écorce brune avec fibres verticales et crevasses."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (120, 80, 45, 255))
     pixels = img.load()
     for x in range(size):
@@ -135,7 +209,7 @@ def make_bark_texture():
 
 def make_leaves_texture():
     """Texture de feuillage détaillée avec variation de vert."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (40, 130, 25, 255))
     pixels = img.load()
     for x in range(size):
@@ -155,7 +229,7 @@ def make_leaves_texture():
 
 def make_stone_texture():
     """Texture de pierre haute-contraste avec fissures visibles."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (140, 135, 128, 255))
     pixels = img.load()
     for x in range(size):
@@ -181,7 +255,7 @@ def make_stone_texture():
 
 def make_wood_floor_texture():
     """Texture de plancher en bois."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (160, 120, 70, 255))
     pixels = img.load()
     plank_w = 16
@@ -203,7 +277,7 @@ def make_wood_floor_texture():
 
 def make_brick_texture():
     """Texture de briques pour les maisons."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (178, 134, 100, 255))
     pixels = img.load()
     brick_h = 12
@@ -228,7 +302,7 @@ def make_brick_texture():
 
 def make_red_brick_texture():
     """Texture de briques rouges pour la maison rouge."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (180, 55, 45, 255))
     pixels = img.load()
     brick_h = 12
@@ -360,7 +434,7 @@ def make_screen_texture():
 
 def make_roof_texture():
     """Texture de toit avec tuiles."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (139, 69, 19, 255))
     pixels = img.load()
     tile_h = 10
@@ -385,7 +459,7 @@ def make_roof_texture():
 
 def make_metal_texture():
     """Texture métallique pour l'usine."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (140, 140, 155, 255))
     pixels = img.load()
     for x in range(size):
@@ -582,7 +656,7 @@ def make_barrel_texture():
 
 def make_door_texture():
     """Texture de porte en bois avec panneaux et poignée."""
-    size = 128
+    size = 64
     img = Image.new('RGBA', (size, size), (110, 72, 38, 255))
     pixels = img.load()
     panel_margin = 12
@@ -636,7 +710,7 @@ def make_door_texture():
 
 def make_window_texture():
     """Texture de vitre avec reflets."""
-    size = 64
+    size = 32
     img = Image.new('RGBA', (size, size), (170, 210, 240, 255))
     pixels = img.load()
     frame = 4
@@ -701,36 +775,146 @@ def make_textured_cylinder(resolution=16):
         tris += [cb, cb + i + 1, cb + (i + 1) % resolution + 1]
     return Mesh(vertices=verts, triangles=tris, uvs=uvs)
 
-# Création des textures
+# ── Tinted texture variant generators ───────────────────────────────────────
+def _make_tinted_brick(br, bg, bb, mr, mg, mb):
+    """Brick pattern with custom brick and mortar colours."""
+    size = 64
+    img = Image.new('RGBA', (size, size), (br, bg, bb, 255))
+    pixels = img.load()
+    brick_h, brick_w = 12, 24
+    for x in range(size):
+        for y in range(size):
+            row = y // brick_h
+            offset = (brick_w // 2) if row % 2 == 1 else 0
+            bx = (x + offset) % brick_w
+            noise = random.randint(-8, 8)
+            if bx == 0 or y % brick_h == 0:
+                pixels[x, y] = (mr, mg, mb, 255)
+            else:
+                wear = int(math.sin(x * 0.1 + y * 0.2) * 6)
+                pixels[x, y] = (
+                    max(0, min(255, br + noise + wear)),
+                    max(0, min(255, bg + noise + wear)),
+                    max(0, min(255, bb + noise)),
+                    255,
+                )
+    return Texture(img)
+
+def make_grey_brick_texture():
+    """Grey brick for factory walls."""
+    return _make_tinted_brick(160, 160, 165, 190, 190, 185)
+
+def make_warm_brick_texture():
+    """Warm-toned brick for furnace walls."""
+    return _make_tinted_brick(210, 165, 140, 225, 215, 200)
+
+def make_orange_brick_texture():
+    """Orange glowing brick for furnace floor."""
+    return _make_tinted_brick(210, 145, 95, 225, 195, 155)
+
+def _make_tinted_metal(br, bg, bb):
+    """Metal texture with custom base colour."""
+    size = 64
+    img = Image.new('RGBA', (size, size), (br, bg, bb, 255))
+    pixels = img.load()
+    for x in range(size):
+        for y in range(size):
+            noise = random.randint(-10, 10)
+            rivet_x = x % 24 < 1
+            rivet_y = y % 24 < 1
+            scratch = int(math.sin(x * 0.5 + y * 0.1) * 6)
+            if rivet_x or rivet_y:
+                pixels[x, y] = (max(0, br - 45), max(0, bg - 45), max(0, bb - 50), 255)
+            elif (x % 24 in (1, 2)) and (y % 24 in range(10, 14)):
+                pixels[x, y] = (min(255, br + 30), min(255, bg + 30), min(255, bb + 25), 255)
+            else:
+                pixels[x, y] = (
+                    max(0, min(255, br + noise + scratch)),
+                    max(0, min(255, bg + noise + scratch)),
+                    max(0, min(255, bb + noise)),
+                    255,
+                )
+    return Texture(img)
+
+def make_dark_metal_texture():
+    """Dark metal for heavy machinery and anvil."""
+    return _make_tinted_metal(80, 80, 90)
+
+def make_light_metal_texture():
+    """Light/white metal for printer body."""
+    return _make_tinted_metal(230, 230, 235)
+
+def make_green_screen_texture():
+    """Green-tinted screen for machine indicators."""
+    size = 32
+    img = Image.new('RGBA', (size, size), (10, 40, 15, 255))
+    pixels = img.load()
+    for x in range(size):
+        for y in range(size):
+            gloss = int(math.sin((x + y) * 0.15) * 8)
+            lcd = 3 if (x % 3 == 0) else 0
+            r = max(0, min(50, 10 + gloss))
+            g = max(0, min(80, 40 + gloss + lcd))
+            b = max(0, min(50, 15 + gloss))
+            pixels[x, y] = (r, g, b, 255)
+    return Texture(img)
+
+def make_blue_cushion_texture():
+    """Blue blanket / cushion for bed."""
+    size = 64
+    img = Image.new('RGBA', (size, size), (80, 100, 170, 255))
+    pixels = img.load()
+    for x in range(size):
+        for y in range(size):
+            noise = random.randint(-4, 4)
+            diamond = math.sin(x * 0.2 + y * 0.2) * math.sin(x * 0.2 - y * 0.2)
+            quilt = int(diamond * 15)
+            seam = -18 if abs(math.sin(x * 0.2 + y * 0.2)) < 0.05 or abs(math.sin(x * 0.2 - y * 0.2)) < 0.05 else 0
+            r = max(0, min(255, 80 + noise + quilt + seam))
+            g = max(0, min(255, 100 + noise + quilt + seam))
+            b = max(0, min(255, 170 + noise + quilt + seam))
+            pixels[x, y] = (r, g, b, 255)
+    return Texture(img)
+
+# Création des textures (avec fallback couleur unie si PIL échoue)
 print("Génération des textures procédurales...")
-tex_grass  = make_grass_texture()
-tex_sand   = make_sand_texture()
-tex_bark   = make_bark_texture()
-tex_leaves = make_leaves_texture()
-tex_stone  = make_stone_texture()
-tex_brick  = make_brick_texture()
-tex_red_brick = make_red_brick_texture()
-tex_roof   = make_roof_texture()
-tex_metal  = make_metal_texture()
-tex_car_paint = make_car_paint_texture()
-tex_car_paint_dark = make_dark_car_paint_texture()
-tex_car_glass = make_car_glass_texture()
-tex_water  = make_water_texture()
-tex_glass  = make_glass_texture()
-tex_can    = make_can_texture()
-tex_cardboard = make_cardboard_texture()
-tex_plastic = make_plastic_texture()
-tex_rubber = make_rubber_texture()
-tex_barrel = make_barrel_texture()
-tex_wood_floor = make_wood_floor_texture()
-tex_door = make_door_texture()
-tex_window = make_window_texture()
-tex_fabric     = make_fabric_texture()
-tex_ceramic    = make_ceramic_texture()
-tex_dark_wood  = make_dark_wood_texture()
-tex_cushion    = make_cushion_texture()
-tex_chrome     = make_chrome_texture()
-tex_screen     = make_screen_texture()
+_t0 = _time_mod.time()
+tex_grass  = _safe_texture(make_grass_texture, (34, 139, 34))
+tex_sand   = _safe_texture(make_sand_texture, (210, 180, 140))
+tex_bark   = _safe_texture(make_bark_texture, (120, 80, 45))
+tex_leaves = _safe_texture(make_leaves_texture, (40, 130, 25))
+tex_stone  = _safe_texture(make_stone_texture, (140, 135, 128))
+tex_brick  = _safe_texture(make_brick_texture, (178, 134, 100))
+tex_red_brick = _safe_texture(make_red_brick_texture, (180, 55, 45))
+tex_roof   = _safe_texture(make_roof_texture, (139, 69, 19))
+tex_metal  = _safe_texture(make_metal_texture, (140, 140, 155))
+tex_car_paint = _safe_texture(make_car_paint_texture, (190, 40, 40))
+tex_car_paint_dark = _safe_texture(make_dark_car_paint_texture, (95, 95, 95))
+tex_car_glass = _safe_texture(make_car_glass_texture, (150, 190, 235))
+tex_water  = _safe_texture(make_water_texture, (30, 100, 180, 200))
+tex_glass  = _safe_texture(make_glass_texture, (60, 180, 70))
+tex_can    = _safe_texture(make_can_texture, (200, 50, 50))
+tex_cardboard = _safe_texture(make_cardboard_texture, (185, 155, 110))
+tex_plastic = _safe_texture(make_plastic_texture, (220, 220, 235))
+tex_rubber = _safe_texture(make_rubber_texture, (35, 35, 35))
+tex_barrel = _safe_texture(make_barrel_texture, (50, 70, 170))
+tex_wood_floor = _safe_texture(make_wood_floor_texture, (160, 120, 70))
+tex_door = _safe_texture(make_door_texture, (110, 72, 38))
+tex_window = _safe_texture(make_window_texture, (170, 210, 240))
+tex_fabric     = _safe_texture(make_fabric_texture, (200, 190, 175))
+tex_ceramic    = _safe_texture(make_ceramic_texture, (240, 238, 232))
+tex_dark_wood  = _safe_texture(make_dark_wood_texture, (85, 55, 30))
+tex_cushion    = _safe_texture(make_cushion_texture, (220, 215, 230))
+tex_chrome     = _safe_texture(make_chrome_texture, (190, 195, 200))
+tex_screen     = _safe_texture(make_screen_texture, (15, 20, 35))
+tex_grey_brick    = _safe_texture(make_grey_brick_texture, (160, 160, 165))
+tex_warm_brick    = _safe_texture(make_warm_brick_texture, (210, 165, 140))
+tex_orange_brick  = _safe_texture(make_orange_brick_texture, (210, 145, 95))
+tex_dark_metal    = _safe_texture(make_dark_metal_texture, (80, 80, 90))
+tex_light_metal   = _safe_texture(make_light_metal_texture, (230, 230, 235))
+tex_green_screen  = _safe_texture(make_green_screen_texture, (10, 40, 15))
+tex_blue_cushion  = _safe_texture(make_blue_cushion_texture, (80, 100, 170))
+print(f"Textures générées en {_time_mod.time() - _t0:.1f}s")
 
 def make_tablet_body_texture():
     size = 32
@@ -756,36 +940,34 @@ def make_tablet_screen_texture():
                 pixels[x, y] = (min(255, r + v), min(255, g + v), min(255, b + v + 8), 255)
     return Texture(img)
 
-tex_tablet_body   = make_tablet_body_texture()
-tex_tablet_screen = make_tablet_screen_texture()
+tex_tablet_body   = _safe_texture(make_tablet_body_texture, (28, 30, 58))
+tex_tablet_screen = _safe_texture(make_tablet_screen_texture, (22, 55, 115))
 
 # Solid-colour PIL textures for the tablet UI overlay (camera.ui quads
 # ignore the color= parameter without a texture, so we bake the colour
 # into a tiny image and use color=color.white on the entity).
 # Фон экрана планшета (тёмный, как в мессенджере)
-_tab_bg_img     = Image.new('RGBA', (4, 4), (18, 18, 24, 255))
-tex_tab_bg      = Texture(_tab_bg_img)
+tex_tab_bg      = _solid_texture(18, 18, 24)
 # Шапка чата (тёмно-синяя полоса)
-_tab_header_img = Image.new('RGBA', (4, 4), (30, 38, 55, 255))
-tex_tab_header  = Texture(_tab_header_img)
+tex_tab_header  = _solid_texture(30, 38, 55)
 # Пузырь входящего сообщения (серо-синий)
-_tab_bubble_img = Image.new('RGBA', (4, 4), (42, 50, 68, 255))
-tex_tab_bubble  = Texture(_tab_bubble_img)
+tex_tab_bubble  = _solid_texture(42, 50, 68)
 # Пузырь отправленного сообщения (зелёный)
-_tab_sent_img   = Image.new('RGBA', (4, 4), (34, 85, 60, 255))
-tex_tab_sent    = Texture(_tab_sent_img)
+tex_tab_sent    = _solid_texture(34, 85, 60)
 
 # Текстуры кнопок машин (сплошные цвета)
-_btn_green_img  = Image.new('RGBA', (4, 4), (50, 200, 50, 255))
-tex_btn_green   = Texture(_btn_green_img)
-_btn_blue_img   = Image.new('RGBA', (4, 4), (50, 120, 220, 255))
-tex_btn_blue    = Texture(_btn_blue_img)
-_btn_yellow_img = Image.new('RGBA', (4, 4), (230, 200, 30, 255))
-tex_btn_yellow  = Texture(_btn_yellow_img)
-_btn_red_img    = Image.new('RGBA', (4, 4), (200, 50, 50, 255))
-tex_btn_red     = Texture(_btn_red_img)
-_btn_orange_img = Image.new('RGBA', (4, 4), (255, 120, 0, 255))
-tex_btn_orange  = Texture(_btn_orange_img)
+tex_btn_green   = _solid_texture(50, 200, 50)
+tex_btn_blue    = _solid_texture(50, 120, 220)
+tex_btn_yellow  = _solid_texture(230, 200, 30)
+tex_btn_red     = _solid_texture(200, 50, 50)
+tex_btn_orange  = _solid_texture(255, 120, 0)
+
+# Текстуры UI-панелей (инвентарь, материалы, миникарта)
+tex_mat_bg       = _solid_texture(20, 20, 30, 230)
+tex_inv_bg       = _solid_texture(0, 0, 0, 120)
+tex_inv_slot     = _solid_texture(60, 60, 60, 180)
+tex_inv_slot_act = _solid_texture(90, 90, 90, 220)
+tex_minimap_bg   = _solid_texture(0, 0, 0, 100)
 
 # ============================================================
 # Éclairage et environnement
@@ -799,7 +981,7 @@ ambient = AmbientLight(color=color.rgb(100, 100, 120))
 # Ciel – sphère avec texture procédurale (gradient + nuages)
 def make_sky_texture():
     """Texture de ciel avec gradient et nuages statiques."""
-    w_sky, h_sky = 512, 256
+    w_sky, h_sky = 256, 128
     img = Image.new('RGBA', (w_sky, h_sky), (135, 195, 250, 255))
     pixels = img.load()
     for y in range(h_sky):
@@ -838,7 +1020,7 @@ def make_sky_texture():
             )
     return Texture(img)
 
-tex_sky = make_sky_texture()
+tex_sky = _safe_texture(make_sky_texture, (135, 195, 250))
 sky_entity = Entity(
     model='sphere',
     scale=(-500, 500, -500),
@@ -878,7 +1060,7 @@ water = Entity(
     scale=(WATER_SIZE, 1, WATER_SIZE),
     texture=tex_water,
     texture_scale=(WATER_SIZE // 8, WATER_SIZE // 8),
-    color=color.rgba(30, 100, 180, 180),
+    color=color.white,
     position=(0, -0.3, 0),
 )
 
@@ -955,13 +1137,13 @@ for i, (hx, hz) in enumerate(HOUSE_POSITIONS):
     Entity(model='cube', scale=(0.56, 0.13, 0.4), position=(hx + 2.72, 0.57, hz + 2.3),
            texture=tex_cushion, texture_scale=(1, 1), color=color.white)  # oreiller
     Entity(model='cube', scale=(1.4, 0.04, 0.95), position=(hx + 1.9, 0.56, hz + 2.08),
-           texture=tex_cushion, texture_scale=(2, 1), color=color.rgb(90, 120, 190))   # couverture
+           texture=tex_blue_cushion, texture_scale=(2, 1), color=color.white)   # couverture
 
     # LAVABO (coin avant-gauche)
     Entity(model='cube', scale=(0.72, 0.08, 0.56), position=(hx - 2.5, 0.84, hz - 2.5),
            texture=tex_ceramic, texture_scale=(1, 1), color=color.white)  # plan de travail
     Entity(model='cube', scale=(0.42, 0.06, 0.34), position=(hx - 2.5, 0.80, hz - 2.5),
-           texture=tex_ceramic, texture_scale=(1, 1), color=color.rgb(200, 225, 245))  # vasque
+           texture=tex_ceramic, texture_scale=(1, 1), color=color.white)  # vasque
     for lx, lz in [(-0.28, -0.22), (-0.28, 0.22), (0.28, -0.22), (0.28, 0.22)]:
         Entity(model='cube', scale=(0.06, 0.84, 0.06),
                position=(hx - 2.5 + lx, 0.42, hz - 2.5 + lz),
@@ -983,11 +1165,11 @@ for i, (hx, hz) in enumerate(HOUSE_POSITIONS):
 
     # BUREAU (mur gauche, centre)
     Entity(model='cube', scale=(1.85, 0.08, 0.88), position=(hx - 2.5, 0.84, hz),
-           texture=tex_dark_wood, texture_scale=(2, 1), color=color.rgb(140, 100, 65))   # plateau
+           texture=tex_dark_wood, texture_scale=(2, 1), color=color.white)   # plateau
     for dx, dz in [(-0.84, -0.38), (-0.84, 0.38), (0.84, -0.38), (0.84, 0.38)]:
         Entity(model='cube', scale=(0.08, 0.84, 0.08),
                position=(hx - 2.5 + dx, 0.42, hz + dz),
-               texture=tex_dark_wood, texture_scale=(1, 1), color=color.rgb(130, 90, 55))  # pieds
+               texture=tex_dark_wood, texture_scale=(1, 1), color=color.white)  # pieds
     # Objet sur le bureau (livre / écран)
     Entity(model='cube', scale=(0.55, 0.04, 0.4), position=(hx - 2.5 + 0.5, 0.90, hz - 0.15),
            texture=tex_screen, texture_scale=(1, 1), color=color.white)     # écran plat
@@ -1003,7 +1185,7 @@ for i, (hx, hz) in enumerate(HOUSE_POSITIONS):
            texture=tex_dark_wood, texture_scale=(1, 1), color=color.white)
     # подушка
     Entity(model='cube', scale=(0.38, 0.04, 0.38), position=(hx - 2.0, 0.52, hz + 0.9),
-           texture=tex_cushion, texture_scale=(1, 1), color=color.rgb(200, 170, 130))
+           texture=tex_cushion, texture_scale=(1, 1), color=color.white)
 
     houses.append(Entity(visible=False))
 
@@ -1012,7 +1194,7 @@ _rh_x, _rh_z = HOUSE_POSITIONS[2]
 # Деревянная планка-вывеска
 Entity(model='cube', scale=(2.6, 0.5, 0.08),
        position=(_rh_x, HOUSE_H - 0.4, _rh_z + HOUSE_D / 2 + 0.06),
-       texture=tex_wood_floor, texture_scale=(2, 1), color=color.rgb(120, 60, 30))
+       texture=tex_wood_floor, texture_scale=(2, 1), color=color.white)
 # Текст на вывеске
 Text(parent=scene, text='RED HOUSE', scale=(8, 8, 8),
      position=(_rh_x, HOUSE_H - 0.35, _rh_z + HOUSE_D / 2 + 0.12),
@@ -1057,26 +1239,26 @@ fwt = 0.15  # épaisseur des murs
 # --- Murs extérieurs creux (серый кирпич) ---
 # Mur arrière
 Entity(model='cube', scale=(fw, fh, fwt), position=(fx, fh/2, fz + fd/2 - fwt/2),
-       texture=tex_brick, texture_scale=(8, 4), color=color.rgb(160, 160, 165), collider='box')
+       texture=tex_grey_brick, texture_scale=(8, 4), color=color.white, collider='box')
 # Mur gauche
 Entity(model='cube', scale=(fwt, fh, fd), position=(fx - fw/2 + fwt/2, fh/2, fz),
-       texture=tex_brick, texture_scale=(5, 4), color=color.rgb(160, 160, 165), collider='box')
+       texture=tex_grey_brick, texture_scale=(5, 4), color=color.white, collider='box')
 # Mur droit
 Entity(model='cube', scale=(fwt, fh, fd), position=(fx + fw/2 - fwt/2, fh/2, fz),
-       texture=tex_brick, texture_scale=(5, 4), color=color.rgb(160, 160, 165), collider='box')
+       texture=tex_grey_brick, texture_scale=(5, 4), color=color.white, collider='box')
 # Mur avant — partie gauche
 f_front_side = (fw - 4.0) / 2
 Entity(model='cube', scale=(f_front_side, fh, fwt),
        position=(fx - fw/2 + f_front_side/2, fh/2, fz - fd/2 + fwt/2),
-       texture=tex_brick, texture_scale=(3, 4), color=color.rgb(160, 160, 165), collider='box')
+       texture=tex_grey_brick, texture_scale=(3, 4), color=color.white, collider='box')
 # Mur avant — partie droite
 Entity(model='cube', scale=(f_front_side, fh, fwt),
        position=(fx + fw/2 - f_front_side/2, fh/2, fz - fd/2 + fwt/2),
-       texture=tex_brick, texture_scale=(3, 4), color=color.rgb(160, 160, 165), collider='box')
+       texture=tex_grey_brick, texture_scale=(3, 4), color=color.white, collider='box')
 # Au-dessus de la porte
 Entity(model='cube', scale=(4.0, fh - 4.5, fwt),
        position=(fx, 4.5 + (fh - 4.5)/2, fz - fd/2 + fwt/2),
-       texture=tex_brick, texture_scale=(2, 2), color=color.rgb(160, 160, 165), collider='box')
+       texture=tex_grey_brick, texture_scale=(2, 2), color=color.white, collider='box')
 # Toit
 Entity(model='cube', scale=(fw + 0.3, 0.2, fd + 0.3), position=(fx, fh + 0.1, fz),
        texture=tex_metal, texture_scale=(4, 3), color=color.white, collider='box')
@@ -1100,36 +1282,36 @@ f_wt = 0.12  # épaisseur des parois
 # Mur arrière
 Entity(model='cube', scale=(f_fw, f_fh, f_wt),
        position=(furnace_pos.x, f_fh/2, furnace_pos.z + f_fd/2 - f_wt/2),
-       texture=tex_brick, texture_scale=(2, 2), color=color.rgb(255, 220, 200), collider='box')
+       texture=tex_warm_brick, texture_scale=(2, 2), color=color.white, collider='box')
 # Mur gauche
 Entity(model='cube', scale=(f_wt, f_fh, f_fd),
        position=(furnace_pos.x - f_fw/2 + f_wt/2, f_fh/2, furnace_pos.z),
-       texture=tex_brick, texture_scale=(1, 2), color=color.rgb(255, 220, 200), collider='box')
+       texture=tex_warm_brick, texture_scale=(1, 2), color=color.white, collider='box')
 # Mur droit
 Entity(model='cube', scale=(f_wt, f_fh, f_fd),
        position=(furnace_pos.x + f_fw/2 - f_wt/2, f_fh/2, furnace_pos.z),
-       texture=tex_brick, texture_scale=(1, 2), color=color.rgb(255, 220, 200), collider='box')
+       texture=tex_warm_brick, texture_scale=(1, 2), color=color.white, collider='box')
 # Mur avant — deux côtés autour de l'ouverture
 f_door_w = 1.0
 f_side_w = (f_fw - f_door_w) / 2
 Entity(model='cube', scale=(f_side_w, f_fh, f_wt),
        position=(furnace_pos.x - f_fw/2 + f_side_w/2, f_fh/2, furnace_pos.z - f_fd/2 + f_wt/2),
-       texture=tex_brick, texture_scale=(1, 2), color=color.rgb(255, 220, 200), collider='box')
+       texture=tex_warm_brick, texture_scale=(1, 2), color=color.white, collider='box')
 Entity(model='cube', scale=(f_side_w, f_fh, f_wt),
        position=(furnace_pos.x + f_fw/2 - f_side_w/2, f_fh/2, furnace_pos.z - f_fd/2 + f_wt/2),
-       texture=tex_brick, texture_scale=(1, 2), color=color.rgb(255, 220, 200), collider='box')
+       texture=tex_warm_brick, texture_scale=(1, 2), color=color.white, collider='box')
 # Au-dessus de l'ouverture
 Entity(model='cube', scale=(f_door_w, f_fh - 1.5, f_wt),
        position=(furnace_pos.x, 1.5 + (f_fh - 1.5)/2, furnace_pos.z - f_fd/2 + f_wt/2),
-       texture=tex_brick, texture_scale=(1, 1), color=color.rgb(255, 220, 200), collider='box')
+       texture=tex_warm_brick, texture_scale=(1, 1), color=color.white, collider='box')
 # Toit du four
 Entity(model='cube', scale=(f_fw, f_wt, f_fd),
        position=(furnace_pos.x, f_fh, furnace_pos.z),
-       texture=tex_metal, texture_scale=(2, 1), color=color.rgb(80, 75, 70), collider='box')
+       texture=tex_dark_metal, texture_scale=(2, 1), color=color.white, collider='box')
 # Sol intérieur (briques rougeoyantes)
 Entity(model='cube', scale=(f_fw - f_wt*2, 0.06, f_fd - f_wt*2),
        position=(furnace_pos.x, 0.03, furnace_pos.z),
-       texture=tex_brick, texture_scale=(1, 1), color=color.rgb(255, 180, 120))
+       texture=tex_orange_brick, texture_scale=(1, 1), color=color.white)
 # Grille de la porte — barreaux verticaux (fer forgé)
 for gx in range(6):
     Entity(model='cube', scale=(0.06, 1.5, 0.08),
@@ -1225,7 +1407,7 @@ for bx_off, bt in [(-0.45, tex_btn_green),
 Entity(model='cube', scale=(0.7, 0.4, 0.08),
        position=(recycler_pos.x, r_open_bottom + r_open_h + r_top_h * 0.2,
                  recycler_pos.z - r_fd/2 - 0.04),
-       texture=tex_screen, color=color.rgb(40, 120, 40), unlit=True)
+       texture=tex_green_screen, color=color.white, unlit=True)
 # Bande de sortie (bas)
 Entity(model='cube', scale=(0.8, 0.3, 1.5),
        position=(recycler_pos.x + 1.8, 0.3, recycler_pos.z),
@@ -1246,36 +1428,36 @@ m_wt = 0.12
 # Mur arrière
 Entity(model='cube', scale=(m_fw, m_fh, m_wt),
        position=(metal_pos.x, m_fh/2, metal_pos.z + m_fd/2 - m_wt/2),
-       texture=tex_metal, texture_scale=(2, 2), color=color.rgb(80, 85, 90), collider='box')
+       texture=tex_dark_metal, texture_scale=(2, 2), color=color.white, collider='box')
 # Mur gauche
 Entity(model='cube', scale=(m_wt, m_fh, m_fd),
        position=(metal_pos.x - m_fw/2 + m_wt/2, m_fh/2, metal_pos.z),
-       texture=tex_metal, texture_scale=(1, 2), color=color.rgb(80, 85, 90), collider='box')
+       texture=tex_dark_metal, texture_scale=(1, 2), color=color.white, collider='box')
 # Mur droit
 Entity(model='cube', scale=(m_wt, m_fh, m_fd),
        position=(metal_pos.x + m_fw/2 - m_wt/2, m_fh/2, metal_pos.z),
-       texture=tex_metal, texture_scale=(1, 2), color=color.rgb(80, 85, 90), collider='box')
+       texture=tex_dark_metal, texture_scale=(1, 2), color=color.white, collider='box')
 # Mur avant — partie basse + partie haute (ouverture centrale)
 m_open_h = 1.4;  m_open_bottom = 0.4
 m_top_h = m_fh - m_open_bottom - m_open_h
 Entity(model='cube', scale=(m_fw, m_open_bottom, m_wt),
        position=(metal_pos.x, m_open_bottom/2, metal_pos.z - m_fd/2 + m_wt/2),
-       texture=tex_metal, texture_scale=(2, 1), color=color.rgb(80, 85, 90), collider='box')
+       texture=tex_dark_metal, texture_scale=(2, 1), color=color.white, collider='box')
 Entity(model='cube', scale=(m_fw, m_top_h, m_wt),
        position=(metal_pos.x, m_open_bottom + m_open_h + m_top_h/2, metal_pos.z - m_fd/2 + m_wt/2),
-       texture=tex_metal, texture_scale=(2, 1), color=color.rgb(80, 85, 90), collider='box')
+       texture=tex_dark_metal, texture_scale=(2, 1), color=color.white, collider='box')
 # Toit
 Entity(model='cube', scale=(m_fw, m_wt, m_fd),
        position=(metal_pos.x, m_fh, metal_pos.z),
-       texture=tex_metal, texture_scale=(2, 1), color=color.rgb(80, 85, 90), collider='box')
+       texture=tex_dark_metal, texture_scale=(2, 1), color=color.white, collider='box')
 # Sol intérieur (brique sombre chauffée)
 Entity(model='cube', scale=(m_fw - m_wt*2, 0.06, m_fd - m_wt*2),
        position=(metal_pos.x, 0.03, metal_pos.z),
-       texture=tex_stone, texture_scale=(1, 1), color=color.rgb(60, 55, 50))
+       texture=tex_stone, texture_scale=(1, 1), color=color.white)
 # Entonnoir de chargement (haut)
 Entity(model='cube', scale=(1.2, 0.5, 1.0),
        position=(metal_pos.x, m_fh + 0.25, metal_pos.z),
-       texture=tex_metal, texture_scale=(1, 1), color=color.rgb(80, 85, 90))
+       texture=tex_dark_metal, texture_scale=(1, 1), color=color.white)
 Entity(model='cube', scale=(0.8, 0.12, 0.6),   # ouverture sombre
        position=(metal_pos.x, m_fh + 0.54, metal_pos.z),
        color=color.rgb(25, 20, 15), unlit=True)
@@ -1283,7 +1465,7 @@ Entity(model='cube', scale=(0.8, 0.12, 0.6),   # ouverture sombre
 Entity(model='cube', scale=(1.2, 0.7, 0.08),
        position=(metal_pos.x, m_open_bottom + m_open_h + m_top_h * 0.4,
                  metal_pos.z - m_fd/2 - 0.02),
-       texture=tex_metal, texture_scale=(1, 1), color=color.rgb(60, 65, 70))
+       texture=tex_dark_metal, texture_scale=(1, 1), color=color.white)
 # Boutons (разноцветные с PIL-текстурами)
 for bx_off, bt in [(-0.3, tex_btn_green),
                     (0.0, tex_btn_orange),
@@ -1313,41 +1495,41 @@ for pipe_x in [fx - 6, fx - 3, fx + 7]:
 _anvil_x, _anvil_z = fx - 6, fz - 2
 # Подставка (пень)
 Entity(model='cube', scale=(0.7, 0.6, 0.7), position=(_anvil_x, 0.3, _anvil_z),
-       texture=tex_dark_wood, texture_scale=(1, 1), color=color.rgb(90, 60, 35))
+       texture=tex_dark_wood, texture_scale=(1, 1), color=color.white)
 # Основание наковальни (широкое)
 Entity(model='cube', scale=(1.2, 0.25, 0.6), position=(_anvil_x, 0.73, _anvil_z),
-       texture=tex_metal, texture_scale=(1, 1), color=color.rgb(55, 55, 60))
+       texture=tex_dark_metal, texture_scale=(1, 1), color=color.white)
 # Талия (узкая часть)
 Entity(model='cube', scale=(0.7, 0.2, 0.4), position=(_anvil_x, 0.95, _anvil_z),
-       texture=tex_metal, texture_scale=(1, 1), color=color.rgb(60, 60, 65))
+       texture=tex_dark_metal, texture_scale=(1, 1), color=color.white)
 # Рабочая поверхность (верх)
 Entity(model='cube', scale=(1.4, 0.15, 0.55), position=(_anvil_x, 1.1, _anvil_z),
-       texture=tex_metal, texture_scale=(1, 1), color=color.rgb(70, 70, 75))
+       texture=tex_dark_metal, texture_scale=(1, 1), color=color.white)
 # Рог наковальни (конус, выступающая часть)
 Entity(model='cube', scale=(0.6, 0.12, 0.22), position=(_anvil_x + 0.9, 1.08, _anvil_z),
-       texture=tex_metal, texture_scale=(1, 1), color=color.rgb(65, 65, 70))
+       texture=tex_dark_metal, texture_scale=(1, 1), color=color.white)
 
 # == ПРИНТЕР / PRINTER (противоположный угол от наковальни) ==
 _printer_x, _printer_z = fx + 6, fz - 2
 PRINTER_RANGE = 3.0
 # Корпус принтера
 Entity(model='cube', scale=(1.4, 0.5, 0.9), position=(_printer_x, 0.85, _printer_z),
-       texture=tex_metal, texture_scale=(1, 1), color=color.rgb(240, 240, 240), collider='box')
+       texture=tex_light_metal, texture_scale=(1, 1), color=color.white, collider='box')
 # Нижняя часть (подставка)
 Entity(model='cube', scale=(1.3, 0.6, 0.85), position=(_printer_x, 0.3, _printer_z),
-       texture=tex_metal, texture_scale=(1, 1), color=color.rgb(60, 60, 65), collider='box')
+       texture=tex_dark_metal, texture_scale=(1, 1), color=color.white, collider='box')
 # Экран на передней панели
 Entity(model='cube', scale=(0.5, 0.2, 0.05),
        position=(_printer_x, 1.0, _printer_z - 0.46),
-       texture=tex_screen, color=color.rgb(40, 120, 40), unlit=True)
+       texture=tex_green_screen, color=color.white, unlit=True)
 # Лоток для бумаги (входной, сверху)
 Entity(model='cube', scale=(0.8, 0.03, 0.4),
        position=(_printer_x, 1.12, _printer_z + 0.15),
-       texture=tex_metal, texture_scale=(1, 1), color=color.rgb(200, 200, 205))
+       texture=tex_light_metal, texture_scale=(1, 1), color=color.white)
 # Лоток для бумаги (выходной, спереди)
 Entity(model='cube', scale=(0.8, 0.03, 0.35),
        position=(_printer_x, 0.65, _printer_z - 0.55),
-       texture=tex_metal, texture_scale=(1, 1), color=color.rgb(200, 200, 205))
+       texture=tex_light_metal, texture_scale=(1, 1), color=color.white)
 # Кнопка питания
 Entity(model='cube', scale=(0.1, 0.1, 0.05),
        position=(_printer_x + 0.5, 1.0, _printer_z - 0.46),
@@ -1607,7 +1789,7 @@ _inv_start_x = -_inv_total_w / 2
 _inv_y = -0.42
 _inv_bg = Entity(parent=camera.ui, model='quad',
                  scale=(_inv_total_w + 0.03, _inv_slot_size + 0.025),
-                 position=(0, _inv_y), color=color.rgba(0, 0, 0, 120), z=0.05)
+                 position=(0, _inv_y), texture=tex_inv_bg, color=color.white, z=0.05)
 _inv_slots_bg = []
 _inv_slots_icon = []
 _inv_slots_txt = []
@@ -1622,7 +1804,7 @@ _trash_short = {
 for _si in range(MAX_INVENTORY):
     sx = _inv_start_x + _si * (_inv_slot_size + _inv_gap) + _inv_slot_size / 2
     sb = Entity(parent=camera.ui, model='quad', scale=(_inv_slot_size, _inv_slot_size),
-                position=(sx, _inv_y), color=color.rgba(60, 60, 60, 180), z=0.04)
+                position=(sx, _inv_y), texture=tex_inv_slot, color=color.white, z=0.04)
     si_icon = Entity(parent=camera.ui, model='quad',
                      scale=(_inv_slot_size * 0.7, _inv_slot_size * 0.7),
                      position=(sx, _inv_y + 0.005), color=color.white, z=0.03,
@@ -1641,16 +1823,16 @@ def _refresh_inventory_ui():
             _inv_slots_icon[i].texture = _trash_tex_map.get(item['name'], tex_metal)
             _inv_slots_icon[i].visible = True
             _inv_slots_txt[i].text = _trash_short.get(item['name'], '?')
-            _inv_slots_bg[i].color = color.rgba(90, 90, 90, 220)
+            _inv_slots_bg[i].texture = tex_inv_slot_act
         else:
             _inv_slots_icon[i].visible = False
             _inv_slots_txt[i].text = ''
-            _inv_slots_bg[i].color = color.rgba(60, 60, 60, 180)
+            _inv_slots_bg[i].texture = tex_inv_slot
 
 
 minimap_bg = Entity(
     parent=camera.ui, model='quad', scale=(0.2, 0.2),
-    position=(0.7, 0.35), color=color.rgba(0, 0, 0, 100),
+    position=(0.7, 0.35), texture=tex_minimap_bg, color=color.white,
 )
 minimap_player_dot = Entity(
     parent=camera.ui, model='circle', scale=0.01,
@@ -1679,29 +1861,29 @@ Entity(model='cube', scale=(2.8, 0.2, 10.0), position=(_bx, _by + 0.1, _bz),
 
 # Bordé gauche (flanc vertical)
 Entity(model='cube', scale=(0.22, 0.74, 9.8), position=(_bx - 1.35, _by + 0.47, _bz),
-       color=color.rgb(136, 93, 48), texture=tex_bark, texture_scale=(1, 5), collider='box')
+       color=color.white, texture=tex_bark, texture_scale=(1, 5), collider='box')
 # Bordé droit
 Entity(model='cube', scale=(0.22, 0.74, 9.8), position=(_bx + 1.35, _by + 0.47, _bz),
-       color=color.rgb(136, 93, 48), texture=tex_bark, texture_scale=(1, 5), collider='box')
+       color=color.white, texture=tex_bark, texture_scale=(1, 5), collider='box')
 
 # Proue — sections qui rétrécissent vers la pointe
 Entity(model='cube', scale=(2.42, 0.84, 1.28), position=(_bx, _by + 0.52, _bz + 4.66),
-       color=color.rgb(130, 88, 44), texture=tex_bark, collider='box')
+       color=color.white, texture=tex_bark, collider='box')
 Entity(model='cube', scale=(1.72, 0.84, 1.08), position=(_bx, _by + 0.52, _bz + 5.8),
-       color=color.rgb(125, 84, 42), texture=tex_bark, collider='box')
+       color=color.white, texture=tex_bark, collider='box')
 Entity(model='cube', scale=(0.86, 0.84, 0.88), position=(_bx, _by + 0.52, _bz + 6.74),
-       color=color.rgb(120, 80, 40), texture=tex_bark, collider='box')
+       color=color.white, texture=tex_bark, collider='box')
 # Étrave (bout de proue)
 Entity(model='cube', scale=(0.28, 1.02, 0.52), position=(_bx, _by + 0.61, _bz + 7.34),
        color=color.rgb(100, 64, 28), unlit=True)
 
 # Tableau arrière (poupe droite)
 Entity(model='cube', scale=(3.04, 0.86, 0.24), position=(_bx, _by + 0.53, _bz - 5.0),
-       color=color.rgb(128, 86, 44), texture=tex_bark, collider='box')
+       color=color.white, texture=tex_bark, collider='box')
 
 # Pont intérieur (planches marchables)
 Entity(model='cube', scale=(2.44, 0.1, 9.2), position=(_bx, _by + 0.24, _bz),
-       color=color.rgb(160, 116, 62), texture=tex_bark, texture_scale=(2, 5), collider='box')
+       color=color.white, texture=tex_bark, texture_scale=(2, 5), collider='box')
 
 # Membrures (traverses internes)
 for _rz in [-3.5, -1.5, 0.5, 2.5]:
@@ -1729,7 +1911,7 @@ for (cx, cz), ccolor in zip(car_positions, car_colors):
     for side in [-1, 1]:
         Entity(model='cube', scale=(0.12, 0.24, 4.2),
                position=(cx + side * 1.06, 0.36, cz),
-               texture=tex_rubber, texture_scale=(2, 1), color=color.rgb(32, 32, 32))
+               texture=tex_rubber, texture_scale=(2, 1), color=color.white)
 
     # ── CAPOT ────────────────────────────────────────────────────────────
     Entity(model='cube', scale=(2.2, 0.1, 1.65),
@@ -1770,14 +1952,14 @@ for (cx, cz), ccolor in zip(car_positions, car_colors):
         Entity(model='cube', scale=(0.11, _fw_h, 0.11),
                position=(cx + side * 0.88, 1.15, cz + 1.0),
                rotation=(-_fw_a, 0, 0), texture=tex_rubber, texture_scale=(1, 1),
-               color=color.rgb(28, 28, 28))
+               color=color.white)
         Entity(model='cube', scale=(0.1, 0.66, 0.1),
                position=(cx + side * 0.88, 0.92, cz - 0.1),
-               texture=tex_rubber, texture_scale=(1, 1), color=color.rgb(28, 28, 28))
+               texture=tex_rubber, texture_scale=(1, 1), color=color.white)
         Entity(model='cube', scale=(0.11, _rw_h, 0.11),
                position=(cx + side * 0.88, 1.06, cz - 1.22),
                rotation=(_rw_a, 0, 0), texture=tex_rubber, texture_scale=(1, 1),
-               color=color.rgb(28, 28, 28))
+               color=color.white)
 
     # ── VITRES LATÉRALES ─────────────────────────────────────────────────
     for side in [-1, 1]:
@@ -1788,7 +1970,7 @@ for (cx, cz), ccolor in zip(car_positions, car_colors):
     # ── PARE-CHOCS AVANT ─────────────────────────────────────────────────
     Entity(model='cube', scale=(2.24, 0.38, 0.22),
            position=(cx, 0.3, cz + 2.21), texture=tex_rubber, texture_scale=(2, 1),
-           color=color.rgb(38, 38, 38))
+           color=color.white)
     Entity(model='cube', scale=(1.5, 0.22, 0.1),
            position=(cx, 0.42, cz + 2.32), texture=tex_chrome, texture_scale=(2, 1),
            color=color.white)  # calandre
@@ -1796,7 +1978,7 @@ for (cx, cz), ccolor in zip(car_positions, car_colors):
     # ── PARE-CHOCS ARRIÈRE ────────────────────────────────────────────────
     Entity(model='cube', scale=(2.24, 0.38, 0.22),
            position=(cx, 0.3, cz - 2.21), texture=tex_rubber, texture_scale=(2, 1),
-           color=color.rgb(38, 38, 38))
+           color=color.white)
 
     # ── PHARES AVANT ─────────────────────────────────────────────────────
     for side in [-1, 1]:
@@ -1818,7 +2000,7 @@ for (cx, cz), ccolor in zip(car_positions, car_colors):
         for wz_off in [-1.35, 1.35]:
             Entity(model='cube', scale=(0.28, 0.55, 0.66),
                    position=(cx + wx * 1.08, 0.42, cz + wz_off),
-                   texture=tex_rubber, texture_scale=(1, 1), color=color.rgb(22, 22, 22))
+                   texture=tex_rubber, texture_scale=(1, 1), color=color.white)
 
     # ── ROUES ─────────────────────────────────────────────────────────────
     for wx in [-1, 1]:
@@ -1907,15 +2089,15 @@ def _build_chat_messages():
         ru = recipe['ru']
         # Если деталь готова — галочка
         if crafted_parts[nm]:
-            msgs.append(('in', f'✓ {ru}'))
+            msgs.append(('in', f'[+] {ru}'))
             continue
         # Ещё нет чертежа — показать шаги к чертежу
         if not blueprints[nm]:
             if pp < 2:
-                msgs.append(('in', f'□ Переработай 2 картона в печи ({pp}/2 бумаги)'))
+                msgs.append(('in', f'[ ] Переработай 2 картона в печи ({pp}/2 бумаги)'))
                 return msgs
             else:
-                msgs.append(('in', f'□ Распечатай чертёж {ru} [E принтер]'))
+                msgs.append(('in', f'[ ] Распечатай чертеж {ru} [E принтер]'))
                 return msgs
         # Есть чертёж, нужны материалы + крафт
         mt = recipe['mat']
@@ -1925,10 +2107,10 @@ def _build_chat_messages():
         st_ru = 'наковальня' if recipe['station'] == 'anvil' else 'рециклер'
         if have < cost:
             verb = 'Переплавь' if mt == 'metal' else 'Переработай'
-            msgs.append(('in', f'□ {verb} {cost} {mt_ru} ({have}/{cost})'))
+            msgs.append(('in', f'[ ] {verb} {cost} {mt_ru} ({have}/{cost})'))
             return msgs
         else:
-            msgs.append(('in', f'□ Сделай {ru} [E {st_ru}]'))
+            msgs.append(('in', f'[ ] Сделай {ru} [E {st_ru}]'))
             return msgs
     # Все детали готовы
     all_crafted = all(crafted_parts.values())
@@ -1937,20 +2119,20 @@ def _build_chat_messages():
     # Фаза карты: флешка + печать
     if not map_printed[0]:
         if not usb_found[0]:
-            msgs.append(('in', '□ Найди флешку в дальнем доме'))
+            msgs.append(('in', '[ ] Найди флешку в дальнем доме'))
             return msgs
         if pp < 2:
-            msgs.append(('in', f'□ Переработай 2 картона ({pp}/2 бумаги)'))
+            msgs.append(('in', f'[ ] Переработай 2 картона ({pp}/2 бумаги)'))
             return msgs
-        msgs.append(('in', '□ Распечатай карту [E принтер]'))
+        msgs.append(('in', '[ ] Распечатай карту [E принтер]'))
         return msgs
-    msgs.append(('in', '✓ Карта'))
+    msgs.append(('in', '[+] Карта'))
     # Установка на лодку
     ni = sum(1 for v in boat_parts_installed.values() if v)
     if ni < len(boat_parts_installed):
-        msgs.append(('in', f'→ Установи на лодку ({ni}/{len(boat_parts_installed)}) [E]'))
+        msgs.append(('in', f'>> Установи на лодку ({ni}/{len(boat_parts_installed)}) [E]'))
     else:
-        msgs.append(('in', '→ Иди к лодке и отплывай! [E]'))
+        msgs.append(('in', '>> Иди к лодке и отплывай! [E]'))
     return msgs
 
 
@@ -2062,31 +2244,44 @@ def _open_materials():
     z_bg = 0.01
     z_el = -0.02
     bg = Entity(parent=camera.ui, model='quad', scale=(0.55, 0.70),
-                color=color.rgba(20, 20, 30, 230), z=z_bg)
+                texture=tex_mat_bg, color=color.white, z=z_bg)
     widgets.append(bg)
     title = Text(parent=camera.ui, text='Материалы [Q]',
                  position=(0, 0.30), origin=(0, 0), scale=1.6,
                  color=color.white, z=z_el)
     widgets.append(title)
     lines = []
-    lines.append(f'Бумага: {paper_count[0]}')
-    lines.append(f'Металл: {smelted_metal_count[0]}')
-    lines.append(f'Пластик: {recycled_plastic_count[0]}')
-    lines.append('')
-    lines.append('─── Чертежи ───')
-    for r in CRAFT_RECIPES:
-        mark = '✓' if blueprints[r['name']] else '✗'
-        lines.append(f'  {mark} {r["ru"]}')
-    lines.append('')
-    lines.append('─── Детали ───')
-    for r in CRAFT_RECIPES:
-        mark = '✓' if crafted_parts[r['name']] else '✗'
-        lines.append(f'  {mark} {r["ru"]}')
-    if usb_found[0]:
+    # Ресурсы показываем только если > 0
+    has_res = paper_count[0] > 0 or smelted_metal_count[0] > 0 or recycled_plastic_count[0] > 0
+    if has_res:
+        lines.append('--- Ресурсы ---')
+        if paper_count[0] > 0:
+            lines.append(f'  Бумага: {paper_count[0]}')
+        if smelted_metal_count[0] > 0:
+            lines.append(f'  Металл: {smelted_metal_count[0]}')
+        if recycled_plastic_count[0] > 0:
+            lines.append(f'  Пластик: {recycled_plastic_count[0]}')
         lines.append('')
-        lines.append('✓ USB-флешка')
+    # Чертежи — только полученные
+    got_blueprints = [r for r in CRAFT_RECIPES if blueprints[r['name']]]
+    if got_blueprints:
+        lines.append('--- Чертежи ---')
+        for r in got_blueprints:
+            lines.append(f'  {r["ru"]}')
+        lines.append('')
+    # Детали — только скрафченные
+    got_parts = [r for r in CRAFT_RECIPES if crafted_parts[r['name']]]
+    if got_parts:
+        lines.append('--- Детали ---')
+        for r in got_parts:
+            lines.append(f'  {r["ru"]}')
+        lines.append('')
+    if usb_found[0]:
+        lines.append('[+] USB-флешка')
     if map_printed[0]:
-        lines.append('✓ Карта')
+        lines.append('[+] Карта')
+    if not lines:
+        lines.append('Пусто')
     body = Text(parent=camera.ui, text='\n'.join(lines),
                 position=(-0.22, 0.22), origin=(-0.5, 0.5), scale=1.1,
                 color=color.rgb(210, 215, 225), z=z_el)
@@ -2136,16 +2331,16 @@ def _create_boat_part(part):
         boat_part_entities.append(
             Entity(model='cube', scale=(0.15, 0.8, 0.15),
                    position=(_bx + 1.0, _by + 0.5, _bz + 6),
-                   texture=tex_metal, color=color.rgb(70, 70, 75)))
+                   texture=tex_dark_metal, color=color.white))
         boat_part_entities.append(
             Entity(model='cube', scale=(0.5, 0.1, 0.1),
                    position=(_bx + 1.0, _by + 0.2, _bz + 6),
-                   texture=tex_metal, color=color.rgb(70, 70, 75)))
+                   texture=tex_dark_metal, color=color.white))
     elif part == 'compass':
         boat_part_entities.append(
             Entity(model=make_textured_cylinder(), scale=(0.3, 0.05, 0.3),
                    position=(_bx, _by + 1.3, _bz - 3.5),
-                   texture=tex_metal, color=color.rgb(180, 160, 60)))
+                   texture=tex_metal, color=color.white))
         boat_part_entities.append(
             Entity(model='cube', scale=(0.05, 0.1, 0.05),
                    position=(_bx, _by + 1.38, _bz - 3.5),
@@ -2161,7 +2356,7 @@ def _create_boat_part(part):
             boat_part_entities.append(
                 Entity(model='cube', scale=(0.25, 0.6, 0.04),
                        position=(_bx + side * 2.0, _by + 0.3, _bz + 0.5),
-                       texture=tex_bark, color=color.rgb(140, 100, 50)))
+                       texture=tex_bark, color=color.white))
 
 
 def _start_escape():
@@ -2522,7 +2717,7 @@ def input(key):
                          rotation_y=random.uniform(-30, 30))
             furnace_inside_items.append(vis)
         _update_hud()
-        action_text.text = f'{len(items)} картон(а) загружено → [R] переработать'
+        action_text.text = f'{len(items)} картон(а) загружено >> [R] переработать'
         return
 
     # Charger le recycleur (verre / plastique / caoutchouc)
@@ -2541,7 +2736,7 @@ def input(key):
                          rotation_y=random.uniform(-40, 40))
             recycler_inside_items.append(vis)
         _update_hud()
-        action_text.text = f'{len(items)} пластик(а) загружено → [R] переработать'
+        action_text.text = f'{len(items)} пластик(а) загружено >> [R] переработать'
         return
 
     # Charger la fonderie métal (canette + bidon)
@@ -2560,7 +2755,7 @@ def input(key):
                          rotation_y=random.uniform(-40, 40))
             metal_inside_items.append(vis)
         _update_hud()
-        action_text.text = f'{len(items)} металл(а) загружено → [R] переплавить'
+        action_text.text = f'{len(items)} металл(а) загружено >> [R] переплавить'
         return
 
     # ── E = Ковка на наковальне ────────────────────────────────────────────
@@ -2643,26 +2838,31 @@ def input(key):
 
     # ── E = Установка деталей на лодку / Побег ─────────────────────────────
     if near_boat[0]:
-        all_crafted = all(crafted_parts.values())
-        if all_crafted and map_printed[0]:
-            parts_left = [k for k, v in boat_parts_installed.items() if not v]
-            if parts_left:
-                part = parts_left[0]
-                boat_parts_installed[part] = True
-                _create_boat_part(part)
-                installed_n = sum(1 for v in boat_parts_installed.values() if v)
-                flash = Entity(parent=camera.ui, model='quad', scale=(2, 2),
-                               color=color.rgba(100, 200, 255, 100), z=-1)
-                destroy(flash, delay=0.2)
-                total_parts = len(boat_parts_installed)
-                if installed_n >= total_parts:
+        # Установка скрафченных деталей по одной
+        parts_left = [k for k, v in boat_parts_installed.items()
+                      if not v and crafted_parts.get(k, False)]
+        if parts_left:
+            part = parts_left[0]
+            boat_parts_installed[part] = True
+            _create_boat_part(part)
+            installed_n = sum(1 for v in boat_parts_installed.values() if v)
+            flash = Entity(parent=camera.ui, model='quad', scale=(2, 2),
+                           color=color.rgba(100, 200, 255, 100), z=-1)
+            destroy(flash, delay=0.2)
+            total_parts = len(boat_parts_installed)
+            if installed_n >= total_parts:
+                if map_printed[0]:
                     action_text.text = 'Лодка готова! [E] Отплыть!'
                 else:
-                    action_text.text = f'{_part_ru[part]} установлен(а)! ({installed_n}/{total_parts})'
-                return
+                    action_text.text = f'{_part_ru[part]} установлен(а)! ({installed_n}/{total_parts}) Нужна карта!'
             else:
-                _start_escape()
-                return
+                action_text.text = f'{_part_ru[part]} установлен(а)! ({installed_n}/{total_parts})'
+            return
+        # Все установлено + карта — отплытие
+        all_installed = all(boat_parts_installed.values())
+        if all_installed and map_printed[0]:
+            _start_escape()
+            return
 
     # ── E = Ramasser un déchet du sol ───────────────────────────────────────
     if closest_trash[0] and len(inventory) < MAX_INVENTORY:
