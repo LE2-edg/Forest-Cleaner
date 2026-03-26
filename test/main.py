@@ -64,6 +64,304 @@ SEED = 42
 random.seed(SEED)
 
 # ============================================================
+# Localisation — read language from launcher's data.json
+# ============================================================
+import json as _json
+
+_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ports', 'windows', 'data')
+_DATA_FILE = os.path.join(_DATA_DIR, 'data.json')
+try:
+    with open(_DATA_FILE, 'r', encoding='utf-8') as _f:
+        _LANG = _json.load(_f).get('language_selected', 'en')
+except Exception:
+    _LANG = 'en'
+if _LANG not in ('en', 'fr', 'es', 'ru'):
+    _LANG = 'en'
+
+# ── Item display names (keyed by internal French ID) ───────────────────────
+ITEM_NAMES = {
+    'en': {'Bouteille': 'Bottle', 'Canette': 'Can', 'Sac plastique': 'Plastic bag',
+            'Pneu': 'Tire', 'Carton': 'Cardboard', 'Bidon': 'Barrel'},
+    'fr': {'Bouteille': 'Bouteille', 'Canette': 'Canette', 'Sac plastique': 'Sac plastique',
+            'Pneu': 'Pneu', 'Carton': 'Carton', 'Bidon': 'Bidon'},
+    'es': {'Bouteille': 'Botella', 'Canette': 'Lata', 'Sac plastique': 'Bolsa de plástico',
+            'Pneu': 'Neumático', 'Carton': 'Cartón', 'Bidon': 'Bidón'},
+    'ru': {'Bouteille': 'Бутылка', 'Canette': 'Банка', 'Sac plastique': 'Пакет',
+            'Pneu': 'Шина', 'Carton': 'Картон', 'Bidon': 'Бидон'},
+}
+
+ITEM_SHORT = {
+    'en': {'Bouteille': 'BTL', 'Canette': 'CAN', 'Sac plastique': 'BAG',
+            'Pneu': 'TIR', 'Carton': 'BOX', 'Bidon': 'BRL'},
+    'fr': {'Bouteille': 'BOU', 'Canette': 'CAN', 'Sac plastique': 'SAC',
+            'Pneu': 'PNE', 'Carton': 'CAR', 'Bidon': 'BID'},
+    'es': {'Bouteille': 'BOT', 'Canette': 'LAT', 'Sac plastique': 'BOL',
+            'Pneu': 'NEU', 'Carton': 'CAR', 'Bidon': 'BID'},
+    'ru': {'Bouteille': 'БУТ', 'Canette': 'БАН', 'Sac plastique': 'ПАК',
+            'Pneu': 'ШИН', 'Carton': 'КАР', 'Bidon': 'БИД'},
+}
+
+# ── Craft part display names ───────────────────────────────────────────────
+PART_NAMES = {
+    'en': {'wheel': 'Helm', 'sail': 'Sail', 'anchor': 'Anchor', 'compass': 'Compass', 'oars': 'Oars'},
+    'fr': {'wheel': 'Barre', 'sail': 'Voile', 'anchor': 'Ancre', 'compass': 'Boussole', 'oars': 'Rames'},
+    'es': {'wheel': 'Timón', 'sail': 'Vela', 'anchor': 'Ancla', 'compass': 'Brújula', 'oars': 'Remos'},
+    'ru': {'wheel': 'Штурвал', 'sail': 'Парус', 'anchor': 'Якорь', 'compass': 'Компас', 'oars': 'Вёсла'},
+}
+
+# ── All UI / gameplay text ─────────────────────────────────────────────────
+TEXTS = {
+    'en': {
+        'trash_label': 'Trash', 'paper_short': 'Pap', 'metal_short': 'Met',
+        'plastic_short': 'Pla', 'parts_short': 'Parts', 'inv_short': 'Inv',
+        'instructions': 'WASD: Move | E: Pick up/Load | R: Start machine | TAB: Tablet | Esc: Quit',
+        'pick_up_tablet': '[E] Pick up tablet from desk',
+        'open_tablet': '[TAB] Open tablet with tasks',
+        'pick_up': '[E] Pick up', 'inventory_full': 'Inventory full! Bring items to the factory.',
+        'process_cardboard': '[R] Process cardboard', 'process_items': '[R] Process',
+        'smelt_metal': '[R] Smelt metal',
+        'load_cardboard': '[E] Load {n} cardboard into recycling machine',
+        'load_plastic': '[E] Load {n} item(s) into recycler',
+        'load_metal': '[E] Load {n} metal item(s) into smelter',
+        'forge_part': '[E] Forge {part}', 'craft_part': '[E] Craft {part}',
+        'print_blueprint': '[E] Print blueprint "{part}"', 'print_map': '[E] Print map',
+        'pick_up_usb': '[E] Pick up USB drive',
+        'install_part': '[E] Install part ({n}/{m})', 'set_sail': '[E] Set sail!',
+        'paper_result': '+{n} paper from cardboard (total {m})',
+        'plastic_result': '+{n} plastic (total {m})',
+        'metal_result': '+{n} metal (total {m})',
+        'cardboard_loaded': '{n} cardboard loaded >> [R] process',
+        'plastic_loaded': '{n} item(s) loaded >> [R] process',
+        'metal_loaded': '{n} metal item(s) loaded >> [R] smelt',
+        'part_forged': '{part} forged!', 'part_crafted': '{part} crafted!',
+        'blueprint_printed': 'Blueprint "{part}" printed!',
+        'map_printed': 'Map printed!', 'usb_found': 'USB drive found!',
+        'boat_ready': 'Boat ready! [E] Set sail!',
+        'part_installed': '{part} installed! ({n}/{m})',
+        'part_installed_need_map': '{part} installed! ({n}/{m}) Need a map!',
+        'tablet_received': '[TAB] Tablet received! Press TAB to view.',
+        'anon_contact': 'anonymous contact', 'online': 'online',
+        'close_tablet': '[TAB] Close',
+        'build_boat': 'Build a boat to escape!',
+        'process_2_cardboard': '[ ] Process 2 cardboard in machine ({n}/2 paper)',
+        'print_blueprint_task': '[ ] Print blueprint for {part} [E printer]',
+        'smelt_material': '[ ] Smelt {cost} metal ({have}/{cost})',
+        'recycle_material': '[ ] Recycle {cost} plastic ({have}/{cost})',
+        'craft_part_task': '[ ] Craft {part} [E {station}]',
+        'find_usb': '[ ] Find USB drive in far house',
+        'process_cardboard_map': '[ ] Process 2 cardboard ({n}/2 paper)',
+        'print_map_task': '[ ] Print map [E printer]',
+        'map_done': '[+] Map',
+        'install_on_boat': '>> Install on boat ({n}/{m}) [E]',
+        'go_to_boat': '>> Go to the boat and set sail! [E]',
+        'materials_title': 'Materials [Q]',
+        'resources_header': '--- Resources ---',
+        'paper': 'Paper', 'metal': 'Metal', 'plastic': 'Plastic',
+        'blueprints_header': '--- Blueprints ---', 'parts_header': '--- Parts ---',
+        'usb_item': '[+] USB drive', 'map_item': '[+] Map', 'empty': 'Empty',
+        'escaped': 'You escaped the island!',
+        'cleaned_escaped': 'You cleaned the island and escaped!',
+        'final_score': 'Final score: {n} points', 'thanks': 'Thank you for playing!',
+        'red_house': 'RED HOUSE',
+        'furnace_name': 'Recycling machine', 'recycler_name': 'Recycler',
+        'smelter_name': 'Smelter', 'anvil_name': 'Anvil', 'printer_name': 'Printer',
+        'station_anvil': 'anvil', 'station_recycler': 'recycler',
+    },
+    'fr': {
+        'trash_label': 'Déchets', 'paper_short': 'Pap', 'metal_short': 'Mét',
+        'plastic_short': 'Pla', 'parts_short': 'Pièces', 'inv_short': 'Inv',
+        'instructions': 'ZQSD : Se déplacer | E : Ramasser/Charger | R : Démarrer machine | TAB : Tablette | Échap : Quitter',
+        'pick_up_tablet': '[E] Prendre la tablette sur le bureau',
+        'open_tablet': '[TAB] Ouvrir la tablette des missions',
+        'pick_up': '[E] Ramasser',
+        'inventory_full': "Inventaire plein ! Apportez les objets à l'usine.",
+        'process_cardboard': '[R] Recycler le carton', 'process_items': '[R] Recycler',
+        'smelt_metal': '[R] Fondre le métal',
+        'load_cardboard': '[E] Charger {n} carton(s) dans la machine',
+        'load_plastic': '[E] Charger {n} article(s) dans le recycleur',
+        'load_metal': '[E] Charger {n} article(s) dans la fonderie',
+        'forge_part': '[E] Forger {part}', 'craft_part': '[E] Fabriquer {part}',
+        'print_blueprint': '[E] Imprimer le plan « {part} »', 'print_map': '[E] Imprimer la carte',
+        'pick_up_usb': '[E] Prendre la clé USB',
+        'install_part': '[E] Installer une pièce ({n}/{m})', 'set_sail': '[E] Prendre la mer !',
+        'paper_result': '+{n} papier du carton (total {m})',
+        'plastic_result': '+{n} plastique (total {m})',
+        'metal_result': '+{n} métal (total {m})',
+        'cardboard_loaded': '{n} carton(s) chargé(s) >> [R] recycler',
+        'plastic_loaded': '{n} article(s) chargé(s) >> [R] recycler',
+        'metal_loaded': '{n} article(s) chargé(s) >> [R] fondre',
+        'part_forged': '{part} forgé(e) !', 'part_crafted': '{part} fabriqué(e) !',
+        'blueprint_printed': 'Plan « {part} » imprimé !',
+        'map_printed': 'Carte imprimée !', 'usb_found': 'Clé USB trouvée !',
+        'boat_ready': 'Bateau prêt ! [E] Prendre la mer !',
+        'part_installed': '{part} installé(e) ! ({n}/{m})',
+        'part_installed_need_map': "{part} installé(e) ! ({n}/{m}) Il faut la carte !",
+        'tablet_received': '[TAB] Tablette obtenue ! Appuyez sur TAB pour consulter.',
+        'anon_contact': 'contact anonyme', 'online': 'en ligne',
+        'close_tablet': '[TAB] Fermer',
+        "build_boat": "Construis un bateau pour t'échapper !",
+        'process_2_cardboard': '[ ] Recycle 2 cartons dans la machine ({n}/2 papier)',
+        'print_blueprint_task': '[ ] Imprime le plan de {part} [E imprimante]',
+        'smelt_material': '[ ] Fonds {cost} métal ({have}/{cost})',
+        'recycle_material': '[ ] Recycle {cost} plastique ({have}/{cost})',
+        'craft_part_task': '[ ] Fabrique {part} [E {station}]',
+        'find_usb': '[ ] Trouve la clé USB dans la maison éloignée',
+        'process_cardboard_map': '[ ] Recycle 2 cartons ({n}/2 papier)',
+        'print_map_task': '[ ] Imprime la carte [E imprimante]',
+        'map_done': '[+] Carte',
+        'install_on_boat': '>> Installe sur le bateau ({n}/{m}) [E]',
+        'go_to_boat': '>> Va au bateau et prends la mer ! [E]',
+        'materials_title': 'Matériaux [Q]',
+        'resources_header': '--- Ressources ---',
+        'paper': 'Papier', 'metal': 'Métal', 'plastic': 'Plastique',
+        'blueprints_header': '--- Plans ---', 'parts_header': '--- Pièces ---',
+        'usb_item': '[+] Clé USB', 'map_item': '[+] Carte', 'empty': 'Vide',
+        "escaped": "Tu t'es échappé de l'île !",
+        "cleaned_escaped": "Tu as nettoyé l'île et tu t'es échappé !",
+        'final_score': 'Score final : {n} points', "thanks": "Merci d'avoir joué !",
+        'red_house': 'MAISON ROUGE',
+        'furnace_name': 'Machine de recyclage du carton', 'recycler_name': 'Recycleur',
+        'smelter_name': 'Fonderie', 'anvil_name': 'Enclume', 'printer_name': 'Imprimante',
+        'station_anvil': 'enclume', 'station_recycler': 'recycleur',
+    },
+    'es': {
+        'trash_label': 'Basura', 'paper_short': 'Pap', 'metal_short': 'Met',
+        'plastic_short': 'Plá', 'parts_short': 'Piez', 'inv_short': 'Inv',
+        'instructions': 'WASD: Mover | E: Recoger/Cargar | R: Iniciar máquina | TAB: Tableta | Esc: Salir',
+        'pick_up_tablet': '[E] Recoger la tableta del escritorio',
+        'open_tablet': '[TAB] Abrir tableta con misiones',
+        'pick_up': '[E] Recoger',
+        'inventory_full': '¡Inventario lleno! Lleva los objetos a la fábrica.',
+        'process_cardboard': '[R] Reciclar cartón', 'process_items': '[R] Reciclar',
+        'smelt_metal': '[R] Fundir metal',
+        'load_cardboard': '[E] Cargar {n} cartón(es) en la máquina',
+        'load_plastic': '[E] Cargar {n} artículo(s) en la recicladora',
+        'load_metal': '[E] Cargar {n} artículo(s) en la fundición',
+        'forge_part': '[E] Forjar {part}', 'craft_part': '[E] Fabricar {part}',
+        'print_blueprint': '[E] Imprimir plano «{part}»', 'print_map': '[E] Imprimir mapa',
+        'pick_up_usb': '[E] Recoger memoria USB',
+        'install_part': '[E] Instalar pieza ({n}/{m})', 'set_sail': '[E] ¡Zarpar!',
+        'paper_result': '+{n} papel del cartón (total {m})',
+        'plastic_result': '+{n} plástico (total {m})',
+        'metal_result': '+{n} metal (total {m})',
+        'cardboard_loaded': '{n} cartón(es) cargado(s) >> [R] reciclar',
+        'plastic_loaded': '{n} artículo(s) cargado(s) >> [R] reciclar',
+        'metal_loaded': '{n} artículo(s) cargado(s) >> [R] fundir',
+        'part_forged': '¡{part} forjado/a!', 'part_crafted': '¡{part} fabricado/a!',
+        'blueprint_printed': '¡Plano «{part}» impreso!',
+        'map_printed': '¡Mapa impreso!', 'usb_found': '¡Memoria USB encontrada!',
+        'boat_ready': '¡Barco listo! [E] ¡Zarpar!',
+        'part_installed': '¡{part} instalado/a! ({n}/{m})',
+        'part_installed_need_map': '¡{part} instalado/a! ({n}/{m}) ¡Falta el mapa!',
+        'tablet_received': '[TAB] ¡Tableta obtenida! Pulsa TAB para ver.',
+        'anon_contact': 'contacto anónimo', 'online': 'en línea',
+        'close_tablet': '[TAB] Cerrar',
+        'build_boat': '¡Construye un barco para escapar!',
+        'process_2_cardboard': '[ ] Recicla 2 cartones en la máquina ({n}/2 papel)',
+        'print_blueprint_task': '[ ] Imprime el plano de {part} [E impresora]',
+        'smelt_material': '[ ] Funde {cost} metal ({have}/{cost})',
+        'recycle_material': '[ ] Recicla {cost} plástico ({have}/{cost})',
+        'craft_part_task': '[ ] Fabrica {part} [E {station}]',
+        'find_usb': '[ ] Encuentra la USB en la casa lejana',
+        'process_cardboard_map': '[ ] Recicla 2 cartones ({n}/2 papel)',
+        'print_map_task': '[ ] Imprime el mapa [E impresora]',
+        'map_done': '[+] Mapa',
+        'install_on_boat': '>> Instala en el barco ({n}/{m}) [E]',
+        'go_to_boat': '>> ¡Ve al barco y zarpa! [E]',
+        'materials_title': 'Materiales [Q]',
+        'resources_header': '--- Recursos ---',
+        'paper': 'Papel', 'metal': 'Metal', 'plastic': 'Plástico',
+        'blueprints_header': '--- Planos ---', 'parts_header': '--- Piezas ---',
+        'usb_item': '[+] Memoria USB', 'map_item': '[+] Mapa', 'empty': 'Vacío',
+        'escaped': '¡Escapaste de la isla!',
+        'cleaned_escaped': '¡Limpiaste la isla y escapaste!',
+        'final_score': 'Puntuación final: {n} puntos', 'thanks': '¡Gracias por jugar!',
+        'red_house': 'CASA ROJA',
+        'furnace_name': 'Máquina de reciclaje de cartón', 'recycler_name': 'Recicladora',
+        'smelter_name': 'Fundición', 'anvil_name': 'Yunque', 'printer_name': 'Impresora',
+        'station_anvil': 'yunque', 'station_recycler': 'recicladora',
+    },
+    'ru': {
+        'trash_label': 'Мусор', 'paper_short': 'Бум', 'metal_short': 'Мет',
+        'plastic_short': 'Пл', 'parts_short': 'Дет', 'inv_short': 'Инв',
+        'instructions': 'WASD: Двигаться | E: Подобрать/Загрузить | R: Запустить машину | TAB: Планшет | Esc: Выход',
+        'pick_up_tablet': '[E] Взять планшет с рабочего стола',
+        'open_tablet': '[TAB] Открыть планшет с заданиями',
+        'pick_up': '[E] Подобрать',
+        'inventory_full': 'Инвентарь полон! Отнесите мусор на завод.',
+        'process_cardboard': '[R] Переработать картон', 'process_items': '[R] Переработать',
+        'smelt_metal': '[R] Переплавить металл',
+        'load_cardboard': '[E] Загрузить {n} картон(а) в машину для переработки',
+        'load_plastic': '[E] Загрузить {n} предмет(а/ов) в рециклер',
+        'load_metal': '[E] Загрузить {n} предмет(а/ов) в плавильню',
+        'forge_part': '[E] Сковать {part}', 'craft_part': '[E] Сделать {part}',
+        'print_blueprint': '[E] Распечатать чертёж «{part}»', 'print_map': '[E] Распечатать карту',
+        'pick_up_usb': '[E] Подобрать флешку',
+        'install_part': '[E] Установить деталь ({n}/{m})', 'set_sail': '[E] Отплыть!',
+        'paper_result': '+{n} бумага из картона (всего {m})',
+        'plastic_result': '+{n} пластик (всего {m})',
+        'metal_result': '+{n} металл (всего {m})',
+        'cardboard_loaded': '{n} картон(а) загружено >> [R] переработать',
+        'plastic_loaded': '{n} предмет(ов) загружено >> [R] переработать',
+        'metal_loaded': '{n} предмет(ов) загружено >> [R] переплавить',
+        'part_forged': '{part} скован(а)!', 'part_crafted': '{part} готов(а)!',
+        'blueprint_printed': 'Чертёж «{part}» распечатан!',
+        'map_printed': 'Карта распечатана!', 'usb_found': 'USB-флешка найдена!',
+        'boat_ready': 'Лодка готова! [E] Отплыть!',
+        'part_installed': '{part} установлен(а)! ({n}/{m})',
+        'part_installed_need_map': '{part} установлен(а)! ({n}/{m}) Нужна карта!',
+        'tablet_received': '[TAB] Планшет получен! Нажмите TAB для просмотра.',
+        'anon_contact': 'аноним', 'online': 'в сети',
+        'close_tablet': '[TAB] Закрыть',
+        'build_boat': 'Построй лодку, чтобы сбежать!',
+        'process_2_cardboard': '[ ] Переработай 2 картона в машине ({n}/2 бумаги)',
+        'print_blueprint_task': '[ ] Распечатай чертёж {part} [E принтер]',
+        'smelt_material': '[ ] Переплавь {cost} металла ({have}/{cost})',
+        'recycle_material': '[ ] Переработай {cost} пластика ({have}/{cost})',
+        'craft_part_task': '[ ] Сделай {part} [E {station}]',
+        'find_usb': '[ ] Найди флешку в дальнем доме',
+        'process_cardboard_map': '[ ] Переработай 2 картона ({n}/2 бумаги)',
+        'print_map_task': '[ ] Распечатай карту [E принтер]',
+        'map_done': '[+] Карта',
+        'install_on_boat': '>> Установи на лодку ({n}/{m}) [E]',
+        'go_to_boat': '>> Иди к лодке и отплывай! [E]',
+        'materials_title': 'Материалы [Q]',
+        'resources_header': '--- Ресурсы ---',
+        'paper': 'Бумага', 'metal': 'Металл', 'plastic': 'Пластик',
+        'blueprints_header': '--- Чертежи ---', 'parts_header': '--- Детали ---',
+        'usb_item': '[+] USB-флешка', 'map_item': '[+] Карта', 'empty': 'Пусто',
+        'escaped': 'Ты сбежал с острова!',
+        'cleaned_escaped': 'Ты очистил остров и сбежал!',
+        'final_score': 'Итоговый счёт: {n} очков', 'thanks': 'Спасибо за игру!',
+        'red_house': 'КРАСНЫЙ ДОМ',
+        'furnace_name': 'Машина для переработки макулатуры', 'recycler_name': 'Рециклер',
+        'smelter_name': 'Плавильня', 'anvil_name': 'Наковальня', 'printer_name': 'Принтер',
+        'station_anvil': 'наковальня', 'station_recycler': 'рециклер',
+    },
+}
+
+
+def T(key):
+    """Look up a translated UI string."""
+    return TEXTS.get(_LANG, TEXTS['en']).get(key, TEXTS['en'].get(key, key))
+
+
+def _item_name(internal):
+    """Translate internal item ID (French) to current language display name."""
+    return ITEM_NAMES.get(_LANG, ITEM_NAMES['en']).get(internal, internal)
+
+
+def _item_short(internal):
+    """Short translated item name for inventory slots."""
+    return ITEM_SHORT.get(_LANG, ITEM_SHORT['en']).get(internal, '?')
+
+
+def _part_name(internal):
+    """Translate craft part internal name to current language."""
+    return PART_NAMES.get(_LANG, PART_NAMES['en']).get(internal, internal)
+
+
+# ============================================================
 # Application Ursina
 # ============================================================
 app = Ursina(
@@ -1092,7 +1390,7 @@ HOUSE_W, HOUSE_H, HOUSE_D = 7, 4, 7
 
 for i, (hx, hz) in enumerate(HOUSE_POSITIONS):
     w, h, d = HOUSE_W, HOUSE_H, HOUSE_D
-    wt = 0.15
+    wt = 0.35
 
     # Couleur des murs : rouge pour la maison 2, blanc pour les autres
     wall_color = color.white
@@ -1196,7 +1494,7 @@ Entity(model='cube', scale=(2.6, 0.5, 0.08),
        position=(_rh_x, HOUSE_H - 0.4, _rh_z + HOUSE_D / 2 + 0.06),
        texture=tex_wood_floor, texture_scale=(2, 1), color=color.white)
 # Текст на вывеске
-Text(parent=scene, text='RED HOUSE', scale=(8, 8, 8),
+Text(parent=scene, text=T('red_house'), scale=(8, 8, 8),
      position=(_rh_x, HOUSE_H - 0.35, _rh_z + HOUSE_D / 2 + 0.12),
      origin=(0, 0), color=color.white)
 
@@ -1234,7 +1532,7 @@ door_blocker = Entity(
 factory_pos = (0, 0, 25)
 fw, fh, fd = 18, 8, 12  # largeur, hauteur, profondeur
 fx, fz = factory_pos[0], factory_pos[2]
-fwt = 0.15  # épaisseur des murs
+fwt = 0.35  # épaisseur des murs
 
 # --- Murs extérieurs creux (серый кирпич) ---
 # Mur arrière
@@ -1278,7 +1576,7 @@ Entity(model=make_textured_cylinder(), scale=(1.2, 6, 1.2), position=(fx + 6, 10
 furnace_pos = Vec3(fx + 5.5, 0, fz + 3.5)
 # Dimensions internes: largeur=2.5, hauteur=2.8, profondeur=2.0
 f_fw, f_fh, f_fd = 2.5, 2.8, 2.0
-f_wt = 0.12  # épaisseur des parois
+f_wt = 0.25  # épaisseur des parois
 # Mur arrière
 Entity(model='cube', scale=(f_fw, f_fh, f_wt),
        position=(furnace_pos.x, f_fh/2, furnace_pos.z + f_fd/2 - f_wt/2),
@@ -1342,7 +1640,7 @@ furnace_inside_items = []
 recycler_pos = Vec3(fx + 1.5, 0, fz + 3.5)
 # Dimensions internes: largeur=3.0, hauteur=3.5, profondeur=2.5
 r_fw, r_fh, r_fd = 3.0, 3.5, 2.5
-r_wt = 0.12  # épaisseur des parois
+r_wt = 0.25  # épaisseur des parois
 # Mur arrière
 Entity(model='cube', scale=(r_fw, r_fh, r_wt),
        position=(recycler_pos.x, r_fh/2, recycler_pos.z + r_fd/2 - r_wt/2),
@@ -1424,7 +1722,7 @@ recycler_inside_items = []
 # == MACHINE MÉTAL (mur arrière, gauche — pour canette + bidon) ==
 metal_pos = Vec3(fx - 3.5, 0, fz + 3.5)
 m_fw, m_fh, m_fd = 2.5, 3.0, 2.0
-m_wt = 0.12
+m_wt = 0.25
 # Mur arrière
 Entity(model='cube', scale=(m_fw, m_fh, m_wt),
        position=(metal_pos.x, m_fh/2, metal_pos.z + m_fd/2 - m_wt/2),
@@ -1756,6 +2054,10 @@ player = FirstPersonController(
 )
 player.cursor.visible = False
 
+# ── Anti-stuck: save last known safe position each frame ────────────────
+_prev_safe_pos = [Vec3(player.position)]
+_stuck_timer = [0.0]
+
 # ============================================================
 # Interface (HUD)
 # ============================================================
@@ -1764,7 +2066,7 @@ total_points = sum(t.trash_points for t in trash_items)
 trash_remaining = [len(trash_items)]
 
 score_text = Text(
-    text=f'Déchets: 0/{TRASH_COUNT}  |  Score: 0  |  Inventaire: 0/{MAX_INVENTORY}',
+    text=f'{T("trash_label")}: 0/{TRASH_COUNT}  |  {T("inv_short")}: 0/{MAX_INVENTORY}',
     position=(-0.85, 0.47), scale=1.1, color=color.white,
     background=True,
 )
@@ -1797,10 +2099,7 @@ _trash_tex_map = {
     'Bouteille': tex_glass, 'Canette': tex_can, 'Sac plastique': tex_plastic,
     'Pneu': tex_rubber, 'Carton': tex_cardboard, 'Bidon': tex_barrel,
 }
-_trash_short = {
-    'Bouteille': 'БУТ', 'Canette': 'БАН', 'Sac plastique': 'ПАК',
-    'Pneu': 'ШИН', 'Carton': 'КАР', 'Bidon': 'БИД',
-}
+_trash_short = ITEM_SHORT.get(_LANG, ITEM_SHORT['en'])
 for _si in range(MAX_INVENTORY):
     sx = _inv_start_x + _si * (_inv_slot_size + _inv_gap) + _inv_slot_size / 2
     sb = Entity(parent=camera.ui, model='quad', scale=(_inv_slot_size, _inv_slot_size),
@@ -1840,7 +2139,7 @@ minimap_player_dot = Entity(
 )
 
 instructions_text = Text(
-    text='ZQSD: Bouger | E: Ramasser/Charger | R: Démarrer machine | TAB: Planшет | Échap: Quitter',
+    text=T('instructions'),
     position=(0, -0.4), origin=(0, 0), scale=0.9, color=color.rgb(200, 200, 200),
     background=True,
 )
@@ -2077,62 +2376,54 @@ _tab_refs = {}
 
 
 def _build_chat_messages():
-    """Возвращает список сообщений чата — задания по крафту лодки."""
+    """Return chat messages — boat-crafting tasks, translated."""
     msgs = []
-    msgs.append(('in', 'Построй лодку, чтобы сбежать!'))
+    msgs.append(('in', T('build_boat')))
     pp = paper_count[0]
     sm = smelted_metal_count[0]
     rp = recycled_plastic_count[0]
-    # Фазы крафта: для каждого рецепта — чертёж, потом ресурсы, потом крафт
     for recipe in CRAFT_RECIPES:
         nm = recipe['name']
-        ru = recipe['ru']
-        # Если деталь готова — галочка
+        pn = _part_name(nm)
         if crafted_parts[nm]:
-            msgs.append(('in', f'[+] {ru}'))
+            msgs.append(('in', f'[+] {pn}'))
             continue
-        # Ещё нет чертежа — показать шаги к чертежу
         if not blueprints[nm]:
             if pp < 2:
-                msgs.append(('in', f'[ ] Переработай 2 картона в печи ({pp}/2 бумаги)'))
+                msgs.append(('in', T('process_2_cardboard').format(n=pp)))
                 return msgs
             else:
-                msgs.append(('in', f'[ ] Распечатай чертеж {ru} [E принтер]'))
+                msgs.append(('in', T('print_blueprint_task').format(part=pn)))
                 return msgs
-        # Есть чертёж, нужны материалы + крафт
         mt = recipe['mat']
         cost = recipe['cost']
         have = sm if mt == 'metal' else rp
-        mt_ru = 'металла' if mt == 'metal' else 'пластика'
-        st_ru = 'наковальня' if recipe['station'] == 'anvil' else 'рециклер'
+        st = T('station_anvil') if recipe['station'] == 'anvil' else T('station_recycler')
         if have < cost:
-            verb = 'Переплавь' if mt == 'metal' else 'Переработай'
-            msgs.append(('in', f'[ ] {verb} {cost} {mt_ru} ({have}/{cost})'))
+            key = 'smelt_material' if mt == 'metal' else 'recycle_material'
+            msgs.append(('in', T(key).format(cost=cost, have=have)))
             return msgs
         else:
-            msgs.append(('in', f'[ ] Сделай {ru} [E {st_ru}]'))
+            msgs.append(('in', T('craft_part_task').format(part=pn, station=st)))
             return msgs
-    # Все детали готовы
     all_crafted = all(crafted_parts.values())
     if not all_crafted:
         return msgs
-    # Фаза карты: флешка + печать
     if not map_printed[0]:
         if not usb_found[0]:
-            msgs.append(('in', '[ ] Найди флешку в дальнем доме'))
+            msgs.append(('in', T('find_usb')))
             return msgs
         if pp < 2:
-            msgs.append(('in', f'[ ] Переработай 2 картона ({pp}/2 бумаги)'))
+            msgs.append(('in', T('process_cardboard_map').format(n=pp)))
             return msgs
-        msgs.append(('in', '[ ] Распечатай карту [E принтер]'))
+        msgs.append(('in', T('print_map_task')))
         return msgs
-    msgs.append(('in', '[+] Карта'))
-    # Установка на лодку
+    msgs.append(('in', T('map_done')))
     ni = sum(1 for v in boat_parts_installed.values() if v)
     if ni < len(boat_parts_installed):
-        msgs.append(('in', f'>> Установи на лодку ({ni}/{len(boat_parts_installed)}) [E]'))
+        msgs.append(('in', T('install_on_boat').format(n=ni, m=len(boat_parts_installed))))
     else:
-        msgs.append(('in', '>> Иди к лодке и отплывай! [E]'))
+        msgs.append(('in', T('go_to_boat')))
     return msgs
 
 
@@ -2155,11 +2446,11 @@ def _open_tablet():
                     position=(0, 0.425), texture=tex_tab_header,
                     color=color.white, z=z_bg - 0.001)
     widgets.append(header)
-    contact = Text(parent=camera.ui, text='anonim contact',
+    contact = Text(parent=camera.ui, text=T('anon_contact'),
                    position=(-0.33, 0.44), origin=(-0.5, 0.5), scale=1.8,
                    color=color.white, z=z_el)
     widgets.append(contact)
-    online = Text(parent=camera.ui, text='в сети',
+    online = Text(parent=camera.ui, text=T('online'),
                   position=(-0.33, 0.415), origin=(-0.5, 0.5), scale=1.0,
                   color=color.rgb(100, 200, 100), z=z_el)
     widgets.append(online)
@@ -2203,8 +2494,7 @@ def _open_tablet():
         y_pos -= bub_h + _GAP
 
     # Статус-бар внизу
-    hint_txt = '[TAB] Закрыть'
-    hint = Text(parent=camera.ui, text=hint_txt,
+    hint = Text(parent=camera.ui, text=T('close_tablet'),
                 position=(0, -0.44), origin=(0, 0), scale=1.1,
                 color=color.rgb(130, 130, 130), z=z_el)
     widgets.append(hint)
@@ -2246,42 +2536,39 @@ def _open_materials():
     bg = Entity(parent=camera.ui, model='quad', scale=(0.55, 0.70),
                 texture=tex_mat_bg, color=color.white, z=z_bg)
     widgets.append(bg)
-    title = Text(parent=camera.ui, text='Материалы [Q]',
+    title = Text(parent=camera.ui, text=T('materials_title'),
                  position=(0, 0.30), origin=(0, 0), scale=1.6,
                  color=color.white, z=z_el)
     widgets.append(title)
     lines = []
-    # Ресурсы показываем только если > 0
     has_res = paper_count[0] > 0 or smelted_metal_count[0] > 0 or recycled_plastic_count[0] > 0
     if has_res:
-        lines.append('--- Ресурсы ---')
+        lines.append(T('resources_header'))
         if paper_count[0] > 0:
-            lines.append(f'  Бумага: {paper_count[0]}')
+            lines.append(f'  {T("paper")}: {paper_count[0]}')
         if smelted_metal_count[0] > 0:
-            lines.append(f'  Металл: {smelted_metal_count[0]}')
+            lines.append(f'  {T("metal")}: {smelted_metal_count[0]}')
         if recycled_plastic_count[0] > 0:
-            lines.append(f'  Пластик: {recycled_plastic_count[0]}')
+            lines.append(f'  {T("plastic")}: {recycled_plastic_count[0]}')
         lines.append('')
-    # Чертежи — только полученные
     got_blueprints = [r for r in CRAFT_RECIPES if blueprints[r['name']]]
     if got_blueprints:
-        lines.append('--- Чертежи ---')
+        lines.append(T('blueprints_header'))
         for r in got_blueprints:
-            lines.append(f'  {r["ru"]}')
+            lines.append(f'  {_part_name(r["name"])}')
         lines.append('')
-    # Детали — только скрафченные
     got_parts = [r for r in CRAFT_RECIPES if crafted_parts[r['name']]]
     if got_parts:
-        lines.append('--- Детали ---')
+        lines.append(T('parts_header'))
         for r in got_parts:
-            lines.append(f'  {r["ru"]}')
+            lines.append(f'  {_part_name(r["name"])}')
         lines.append('')
     if usb_found[0]:
-        lines.append('[+] USB-флешка')
+        lines.append(T('usb_item'))
     if map_printed[0]:
-        lines.append('[+] Карта')
+        lines.append(T('map_item'))
     if not lines:
-        lines.append('Пусто')
+        lines.append(T('empty'))
     body = Text(parent=camera.ui, text='\n'.join(lines),
                 position=(-0.22, 0.22), origin=(-0.5, 0.5), scale=1.1,
                 color=color.rgb(210, 215, 225), z=z_el)
@@ -2297,7 +2584,7 @@ def _close_materials():
     _mat_widgets.clear()
 
 
-_part_ru = {r['name']: r['ru'] for r in CRAFT_RECIPES}
+_part_ru = {r['name']: _part_name(r['name']) for r in CRAFT_RECIPES}
 
 
 def _create_boat_part(part):
@@ -2374,17 +2661,17 @@ def _start_escape():
     player.position = Vec3(_bx, _by + 1.5, _bz - 3)
     player.rotation_y = -90
     camera.rotation_x = -5
-    win_text.text = 'Ты сбежал с острова!'
+    win_text.text = T('escaped')
 
 
 def _update_hud():
     collected = TRASH_COUNT - trash_remaining[0]
     parts = sum(1 for v in crafted_parts.values() if v)
-    score_text.text = (f'Мусор: {collected}/{TRASH_COUNT}  |  '
-                       f'Бум: {paper_count[0]}  Мет: {smelted_metal_count[0]}  '
-                       f'Пл: {recycled_plastic_count[0]}  |  '
-                       f'Дет: {parts}/5  |  '
-                       f'Инв: {len(inventory)}/{MAX_INVENTORY}')
+    score_text.text = (f'{T("trash_label")}: {collected}/{TRASH_COUNT}  |  '
+                       f'{T("paper_short")}: {paper_count[0]}  {T("metal_short")}: {smelted_metal_count[0]}  '
+                       f'{T("plastic_short")}: {recycled_plastic_count[0]}  |  '
+                       f'{T("parts_short")}: {parts}/5  |  '
+                       f'{T("inv_short")}: {len(inventory)}/{MAX_INVENTORY}')
     _refresh_inventory_ui()
 
 def update():
@@ -2397,10 +2684,32 @@ def update():
 
     if player.y < -5:
         player.position = Vec3(0, 1.5, -20)
+        _prev_safe_pos[0] = Vec3(player.position)
 
     border = half_island + 6
     player.x = max(-border, min(border, player.x))
     player.z = max(-border, min(border, player.z))
+
+    # ── Anti-stuck: detect player clipping into walls ──────────────────
+    if not game_won[0]:
+        _hit = player.intersects()
+        if _hit.hit and _hit.entity and hasattr(_hit.entity, 'collider') and _hit.entity.collider:
+            _stuck_timer[0] += time.dt
+            if _stuck_timer[0] > 0.15:
+                # Push player back to last safe position
+                player.position = Vec3(_prev_safe_pos[0])
+                _stuck_timer[0] = 0.0
+        else:
+            _stuck_timer[0] = 0.0
+            _prev_safe_pos[0] = Vec3(player.position)
+
+    # ── Ambient birds: play chirp at random intervals ──────────────────
+    if _ambient_birds is not None:
+        _birds_timer[0] += time.dt
+        if _birds_timer[0] >= _birds_interval[0]:
+            _ambient_birds.play()
+            _birds_timer[0] = 0.0
+            _birds_interval[0] = 60.0
 
     if game_won[0]:
         if escape_started[0]:
@@ -2418,9 +2727,9 @@ def update():
                     win_text.text = ''
                     lines = [
                         'FOREST CLEANER', '',
-                        'Ты очистил остров и сбежал!',
-                        f'Итоговый счёт: {score[0]} очков', '',
-                        'Спасибо за игру!',
+                        T('cleaned_escaped'),
+                        T('final_score').format(n=score[0]), '',
+                        T('thanks'),
                     ]
                     ct = Text(text='\n'.join(lines), position=(0, -0.5),
                               origin=(0, 0), scale=2, color=color.white, z=-6)
@@ -2481,40 +2790,40 @@ def update():
     if tablet_entity_ref[0] is not None:
         d_tab = distance_2d(player_pos_2d, (tablet_entity_ref[0].x, tablet_entity_ref[0].z))
         if d_tab < TABLET_PICKUP_RANGE:
-            prompts.append('[E] Взять планшет с рабочего стола')
+            prompts.append(T('pick_up_tablet'))
 
-    # Rappel planшет
+    # Rappel tablet
     if tablet_picked_up[0] and not tablet_open[0] and not tablet_task_done[0]:
-        prompts.append('[TAB] Открыть планшет с заданиями')
+        prompts.append(T('open_tablet'))
 
     # Ramasser depuis le sol
     if best_trash and len(inventory) < MAX_INVENTORY:
-        prompts.append(f'[E] Подобрать {best_trash.trash_name}')
+        prompts.append(f'{T("pick_up")} {_item_name(best_trash.trash_name)}')
         best_trash.indicator.color = color.rgb(50, 255, 50)
         best_trash.indicator.scale = 0.25
     elif best_trash:
-        prompts.append('Инвентарь полон! Отнесите на завод.')
+        prompts.append(T('inventory_full'))
         best_trash.indicator.color = color.rgb(255, 100, 100)
         best_trash.indicator.scale = 0.2
 
     # Démarrer une machine (R)
     if near_furnace[0] and furnace_pending:
-        prompts.append(f'[R] Переработать картон ({len(furnace_pending)})')
+        prompts.append(f'{T("process_cardboard")} ({len(furnace_pending)})')
     if near_recycler[0] and recycler_pending:
-        prompts.append(f'[R] Переработать ({len(recycler_pending)} шт.)')
+        prompts.append(f'{T("process_items")} ({len(recycler_pending)})')
     if near_metal[0] and metal_pending:
-        prompts.append(f'[R] Переплавить металл ({len(metal_pending)})')
+        prompts.append(f'{T("smelt_metal")} ({len(metal_pending)})')
 
     # Charger une machine (E)
     if near_furnace[0] and has_furnace_inv and not best_trash:
         cnt = sum(1 for i in inventory if i['name'] in FURNACE_NAMES)
-        prompts.append(f'[E] Загрузить {cnt} картон(а) в печь')
+        prompts.append(T('load_cardboard').format(n=cnt))
     if near_recycler[0] and has_recycler_inv and not best_trash:
         cnt = sum(1 for i in inventory if i['name'] in RECYCLER_NAMES)
-        prompts.append(f'[E] Загрузить {cnt} пластик(а) в рециклер')
+        prompts.append(T('load_plastic').format(n=cnt))
     if near_metal[0] and has_metal_inv and not best_trash:
         cnt = sum(1 for i in inventory if i['name'] in METAL_NAMES)
-        prompts.append(f'[E] Загрузить {cnt} металл(а) в плавильню')
+        prompts.append(T('load_metal').format(n=cnt))
 
     # Наковальня — крафт
     if near_anvil[0]:
@@ -2525,7 +2834,7 @@ def update():
             if not blueprints[nm] or crafted_parts[nm]:
                 continue
             if smelted_metal_count[0] >= recipe['cost']:
-                prompts.append(f'[E] Сковать {recipe["ru"]}')
+                prompts.append(T('forge_part').format(part=_part_name(nm)))
             break
 
     # Рециклер — крафт пластиковых деталей
@@ -2537,7 +2846,7 @@ def update():
             if not blueprints[nm] or crafted_parts[nm]:
                 continue
             if recycled_plastic_count[0] >= recipe['cost']:
-                prompts.append(f'[E] Сделать {recipe["ru"]}')
+                prompts.append(T('craft_part').format(part=_part_name(nm)))
             break
 
     # Принтер
@@ -2548,17 +2857,17 @@ def update():
                 if blueprints[nm]:
                     continue
                 if paper_count[0] >= 2:
-                    prompts.append(f'[E] Распечатать чертёж «{recipe["ru"]}»')
+                    prompts.append(T('print_blueprint').format(part=_part_name(nm)))
                 break
         elif usb_found[0] and not map_printed[0] and paper_count[0] >= 2:
-            prompts.append('[E] Распечатать карту')
+            prompts.append(T('print_map'))
 
     # Флешка
     if usb_entity_ref[0] is not None and not usb_found[0]:
         d_usb = distance_2d(player_pos_2d,
                             (usb_entity_ref[0].x, usb_entity_ref[0].z))
         if d_usb < 2.5:
-            prompts.append('[E] Подобрать флешку')
+            prompts.append(T('pick_up_usb'))
 
     # Лодка
     if near_boat[0]:
@@ -2567,9 +2876,9 @@ def update():
             ni = sum(1 for v in boat_parts_installed.values() if v)
             total_parts = len(boat_parts_installed)
             if ni < total_parts:
-                prompts.append(f'[E] Установить деталь ({ni}/{total_parts})')
+                prompts.append(T('install_part').format(n=ni, m=total_parts))
             else:
-                prompts.append('[E] Отплыть!')
+                prompts.append(T('set_sail'))
 
     action_text.text = '\n'.join(prompts)
 
@@ -2640,7 +2949,7 @@ def input(key):
                            color=color.rgba(255, 150, 50, 100), z=-1)
             destroy(flash, delay=0.2)
             _update_hud()
-            action_text.text = f'+{len(items)} бумага из картона (всего {paper_count[0]})'
+            action_text.text = T('paper_result').format(n=len(items), m=paper_count[0])
             _check_win()
             return
 
@@ -2660,7 +2969,7 @@ def input(key):
                            color=color.rgba(100, 255, 100, 100), z=-1)
             destroy(flash, delay=0.2)
             _update_hud()
-            action_text.text = f'+{len(items)} пластик (всего {recycled_plastic_count[0]})'
+            action_text.text = T('plastic_result').format(n=len(items), m=recycled_plastic_count[0])
             _check_win()
             return
 
@@ -2680,7 +2989,7 @@ def input(key):
                            color=color.rgba(255, 180, 50, 100), z=-1)
             destroy(flash, delay=0.2)
             _update_hud()
-            action_text.text = f'+{len(items)} металл (всего {smelted_metal_count[0]})'
+            action_text.text = T('metal_result').format(n=len(items), m=smelted_metal_count[0])
             _check_win()
             return
         return
@@ -2697,7 +3006,7 @@ def input(key):
             destroy(tablet_entity_ref[0])
             tablet_entity_ref[0] = None
             door_blocker.disable()
-            action_text.text = '[TAB] Планшет получен! Нажмите TAB для просмотра.'
+            action_text.text = T('tablet_received')
             return
 
     # ── E = CHARGER UNE MACHINE (dépôt sans traitement) ────────────────────
@@ -2717,7 +3026,7 @@ def input(key):
                          rotation_y=random.uniform(-30, 30))
             furnace_inside_items.append(vis)
         _update_hud()
-        action_text.text = f'{len(items)} картон(а) загружено >> [R] переработать'
+        action_text.text = T('cardboard_loaded').format(n=len(items))
         return
 
     # Charger le recycleur (verre / plastique / caoutchouc)
@@ -2736,7 +3045,7 @@ def input(key):
                          rotation_y=random.uniform(-40, 40))
             recycler_inside_items.append(vis)
         _update_hud()
-        action_text.text = f'{len(items)} пластик(а) загружено >> [R] переработать'
+        action_text.text = T('plastic_loaded').format(n=len(items))
         return
 
     # Charger la fonderie métal (canette + bidon)
@@ -2755,7 +3064,7 @@ def input(key):
                          rotation_y=random.uniform(-40, 40))
             metal_inside_items.append(vis)
         _update_hud()
-        action_text.text = f'{len(items)} металл(а) загружено >> [R] переплавить'
+        action_text.text = T('metal_loaded').format(n=len(items))
         return
 
     # ── E = Ковка на наковальне ────────────────────────────────────────────
@@ -2773,7 +3082,7 @@ def input(key):
                                color=color.rgba(200, 200, 255, 100), z=-1)
                 destroy(flash, delay=0.2)
                 _update_hud()
-                action_text.text = f'{recipe["ru"]} скован(а)!'
+                action_text.text = T('part_forged').format(part=_part_name(recipe['name']))
                 return
             break
 
@@ -2792,7 +3101,7 @@ def input(key):
                                color=color.rgba(100, 255, 200, 100), z=-1)
                 destroy(flash, delay=0.2)
                 _update_hud()
-                action_text.text = f'{recipe["ru"]} готов(а)!'
+                action_text.text = T('part_crafted').format(part=_part_name(recipe['name']))
                 return
             break
 
@@ -2811,7 +3120,7 @@ def input(key):
                                    color=color.rgba(200, 255, 200, 100), z=-1)
                     destroy(flash, delay=0.2)
                     _update_hud()
-                    action_text.text = f'Чертёж «{recipe["ru"]}» распечатан!'
+                    action_text.text = T('blueprint_printed').format(part=_part_name(recipe['name']))
                     return
                 break
         elif usb_found[0] and not map_printed[0] and paper_count[0] >= 2:
@@ -2821,7 +3130,7 @@ def input(key):
                            color=color.rgba(200, 255, 200, 100), z=-1)
             destroy(flash, delay=0.2)
             _update_hud()
-            action_text.text = 'Карта распечатана!'
+            action_text.text = T('map_printed')
             return
 
     # ── E = Подобрать флешку ───────────────────────────────────────────────
@@ -2832,7 +3141,7 @@ def input(key):
             usb_found[0] = True
             destroy(usb_entity_ref[0])
             usb_entity_ref[0] = None
-            action_text.text = 'USB-флешка найдена!'
+            action_text.text = T('usb_found')
             _update_hud()
             return
 
@@ -2852,11 +3161,11 @@ def input(key):
             total_parts = len(boat_parts_installed)
             if installed_n >= total_parts:
                 if map_printed[0]:
-                    action_text.text = 'Лодка готова! [E] Отплыть!'
+                    action_text.text = T('boat_ready')
                 else:
-                    action_text.text = f'{_part_ru[part]} установлен(а)! ({installed_n}/{total_parts}) Нужна карта!'
+                    action_text.text = T('part_installed_need_map').format(part=_part_name(part), n=installed_n, m=total_parts)
             else:
-                action_text.text = f'{_part_ru[part]} установлен(а)! ({installed_n}/{total_parts})'
+                action_text.text = T('part_installed').format(part=_part_name(part), n=installed_n, m=total_parts)
             return
         # Все установлено + карта — отплытие
         all_installed = all(boat_parts_installed.values())
@@ -2883,6 +3192,73 @@ def input(key):
 def _check_win():
     pass
 
+
+# ============================================================
+# Ambient sound – real CC0 nature recordings
+# ============================================================
+# Wind (44s loop):  CC0 by Bashar3A (OpenGameArt)
+# Nature/cicadas (3min loop): CC0 public domain (Internet Archive)
+# Bird chirp (3s, periodic): CC0 by syncopika (OpenGameArt)
+from panda3d.core import Filename as _Filename
+
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Prefer long recordings; fall back to short ones
+_wind_long = os.path.join(_script_dir, 'ambient_wind_long.wav')
+_nature_long = os.path.join(_script_dir, 'ambient_cicadas.mp3')
+_wind_short = [os.path.join(_script_dir, f) for f in ('wind.ogg', 'wind2.ogg', 'wind3.ogg')]
+_birds_file = os.path.join(_script_dir, 'ambient_birds.mp3')
+
+_ambient_wind = None
+_ambient_nature = None
+_ambient_birds = None
+_birds_timer = [0.0]
+_birds_interval = [60.0]
+
+def _load_sfx(filepath):
+    """Load sound using Panda3D-compatible path."""
+    return loader.loadSfx(_Filename.fromOsSpecific(filepath))
+
+try:
+    from panda3d.core import AudioSound as _AudioSound
+
+    # 1) Wind layer — long 44s recording (loops smoothly)
+    _wind_path = _wind_long if os.path.exists(_wind_long) else None
+    if not _wind_path:
+        _existing = [f for f in _wind_short if os.path.exists(f)]
+        _wind_path = random.choice(_existing) if _existing else None
+    if _wind_path:
+        _ambient_wind = _load_sfx(_wind_path)
+        if _ambient_wind and _ambient_wind.status() != _AudioSound.BAD:
+            _ambient_wind.setLoop(True)
+            _ambient_wind.setVolume(0.45)
+            _ambient_wind.play()
+            print(f"[AUDIO] Wind playing: {os.path.basename(_wind_path)} ({_ambient_wind.length():.0f}s)")
+        else:
+            _ambient_wind = None
+
+    # 2) Nature layer — long 3min cicadas/nature recording (loops)
+    if os.path.exists(_nature_long):
+        _ambient_nature = _load_sfx(_nature_long)
+        if _ambient_nature and _ambient_nature.status() != _AudioSound.BAD:
+            _ambient_nature.setLoop(True)
+            _ambient_nature.setVolume(0.35)
+            _ambient_nature.play()
+            print(f"[AUDIO] Nature playing: ambient_cicadas.mp3 ({_ambient_nature.length():.0f}s)")
+        else:
+            _ambient_nature = None
+
+    # 3) Bird chirp — short clip triggered every 60s
+    if os.path.exists(_birds_file):
+        _ambient_birds = _load_sfx(_birds_file)
+        if _ambient_birds and _ambient_birds.status() != _AudioSound.BAD:
+            _ambient_birds.setLoop(False)
+            _ambient_birds.setVolume(0.4)
+            print("[AUDIO] Bird chirp loaded (plays every 60s).")
+        else:
+            _ambient_birds = None
+except Exception as _audio_err:
+    print(f"[AUDIO] WARNING: {_audio_err}")
 
 # ============================================================
 # Lancement
