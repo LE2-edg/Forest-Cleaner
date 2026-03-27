@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
 Forest Cleaner — Universal Launcher
-Автоматически устанавливает зависимости и запускает игру.
-Работает на любом ПК с Python 3.8+.
+Automatically installs dependencies and launches the game.
+Works on any PC with Python 3.8+.
 """
 import importlib
 import subprocess
 import sys
 import os
 
-# Минимальная версия Python
+# Minimum Python version
 MIN_PYTHON = (3, 8)
 
 REQUIRED_PACKAGES = [
@@ -20,10 +20,10 @@ REQUIRED_PACKAGES = [
 
 def check_python_version():
     if sys.version_info < MIN_PYTHON:
-        print(f"[ОШИБКА] Требуется Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]}+")
-        print(f"         Установлен: Python {sys.version_info.major}.{sys.version_info.minor}")
-        print("         Скачайте Python: https://www.python.org/downloads/")
-        input("Нажмите Enter для выхода...")
+        print(f"[ERROR] Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]}+ is required")
+        print(f"        Installed: Python {sys.version_info.major}.{sys.version_info.minor}")
+        print("        Download Python: https://www.python.org/downloads/")
+        input("Press Enter to exit...")
         sys.exit(1)
 
 
@@ -58,13 +58,13 @@ def ensure_pip():
             stderr=subprocess.DEVNULL,
         )
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print("[INFO] pip не найден, устанавливаю...")
+        print("[INFO] pip not found, installing...")
         try:
             subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
         except Exception:
-            print("[ОШИБКА] Не удалось установить pip.")
-            print("         Запустите вручную: python -m ensurepip --upgrade")
-            input("Нажмите Enter для выхода...")
+            print("[ERROR] Failed to install pip.")
+            print("        Run manually: python -m ensurepip --upgrade")
+            input("Press Enter to exit...")
             sys.exit(1)
 
 
@@ -74,46 +74,46 @@ def install_dependencies():
         if is_installed(module_name):
             print(f"  [OK] {package_name}")
             continue
-        print(f"  [УСТАНОВКА] {package_name}...", end=" ", flush=True)
+        print(f"  [INSTALLING] {package_name}...", end=" ", flush=True)
         if install_package(package_name):
-            print("готово")
+            print("done")
         else:
-            print("ОШИБКА")
+            print("ERROR")
             failed.append(package_name)
     return failed
 
 
 def main():
     print("=" * 50)
-    print("  Forest Cleaner — Запуск игры")
+    print("  Forest Cleaner — Launching game")
     print("=" * 50)
 
-    # 1. Проверка Python
+    # 1. Check Python
     check_python_version()
     print(f"[OK] Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
 
-    # 2. Проверка pip
+    # 2. Check pip
     ensure_pip()
 
-    # 3. Установка зависимостей
-    print("\nПроверка зависимостей:")
+    # 3. Install dependencies
+    print("\nChecking dependencies:")
     failed = install_dependencies()
 
     if failed:
-        print(f"\n[ОШИБКА] Не удалось установить: {', '.join(failed)}")
-        print("Попробуйте вручную:")
+        print(f"\n[ERROR] Failed to install: {', '.join(failed)}")
+        print("Try manually:")
         for pkg in failed:
             print(f"  pip install {pkg}")
-        input("Нажмите Enter для выхода...")
+        input("Press Enter to exit...")
         sys.exit(1)
 
-    # 4. Запуск игры
-    print("\nЗапуск Forest Cleaner...")
+    # 4. Launch game
+    print("\nLaunching Forest Cleaner...")
     game_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test", "main.py")
 
     if not os.path.exists(game_script):
-        print(f"[ОШИБКА] Не найден файл игры: {game_script}")
-        input("Нажмите Enter для выхода...")
+        print(f"[ERROR] Game file not found: {game_script}")
+        input("Press Enter to exit...")
         sys.exit(1)
 
     os.chdir(os.path.dirname(game_script))
@@ -123,8 +123,8 @@ def main():
     except KeyboardInterrupt:
         pass
     except Exception as e:
-        print(f"\n[ОШИБКА] {e}")
-        input("Нажмите Enter для выхода...")
+        print(f"\n[ERROR] {e}")
+        input("Press Enter to exit...")
         sys.exit(1)
 
 
