@@ -1,0 +1,7 @@
+python3
+pillow
+pandas3D
+ursina
+opencv-python
+pygame
+customtkinter
