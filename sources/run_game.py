@@ -109,7 +109,7 @@ def main():
 
     # 4. Launch game
     print("\nLaunching Forest Cleaner...")
-    game_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test", "main.py")
+    game_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "test", "main.py")
 
     if not os.path.exists(game_script):
         print(f"[ERROR] Game file not found: {game_script}")

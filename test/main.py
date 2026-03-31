@@ -68,7 +68,7 @@ random.seed(SEED)
 # ============================================================
 import json as _json
 
-_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ports', 'windows', 'data')
+_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'sources', 'ports', 'windows', 'data')
 _DATA_FILE = os.path.join(_DATA_DIR, 'data.json')
 try:
     with open(_DATA_FILE, 'r', encoding='utf-8') as _f:
@@ -384,13 +384,13 @@ application.asset_folder = Path(os.path.dirname(os.path.abspath(__file__))).pare
 # Chargement de modèles OBJ personnalisés (Blender)
 # ============================================================
 # Dossier models/ à la racine du projet
-_MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'models')
+_MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'models')
 
 def resolve_model(name, fallback):
-    """Retourne 'models/<name>' si models/<name>.obj existe, sinon le mesh fallback.
+    """Retourne 'data/models/<name>' si data/models/<name>.obj existe, sinon le mesh fallback.
     Permet de remplacer n'importe quel objet par un .OBJ créé dans Blender."""
     if os.path.exists(os.path.join(_MODELS_DIR, name + '.obj')):
-        return f'models/{name}'
+        return f'data/models/{name}'
     return fallback() if callable(fallback) else fallback
 
 # ============================================================

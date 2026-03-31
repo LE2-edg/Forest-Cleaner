@@ -14,7 +14,7 @@ Aucune dépendance extérieure (Python standard uniquement).
 import math
 import os
 
-OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'models', 'base')
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'data', 'models', 'base')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 TAU = 2 * math.pi

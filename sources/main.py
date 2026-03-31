@@ -20,7 +20,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "ports", "windows", "data")
 DATA_FILE = os.path.join(DATA_DIR, "data.json")
 LANGUAGES_FILE = os.path.join(DATA_DIR, "languages.json")
-GAME_SCRIPT = os.path.join(BASE_DIR, "test", "main.py")
+GAME_SCRIPT = os.path.join(BASE_DIR, "..", "test", "main.py")
 
 # ── Packages the *game* really needs (pip-name → import-name) ─────────────
 GAME_PACKAGES = [
